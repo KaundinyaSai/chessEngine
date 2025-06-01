@@ -1,0 +1,12 @@
+.vscode/
+
+Chess/bin/
+Chess/obj/
+
+ConsoleApp1/bin/
+ConsoleApp1/obj/
+
+Chess.sln
+
+Chess/Chess.csproj
+ConsoleApp1/ConsoleApp1.csproj
