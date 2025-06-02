@@ -10,6 +10,8 @@ public class Piece
     public int index => (rank * 8) + file; // formula to convert file and rank to a single index
     public int movedNum = 0; // number of moves made by the piece
 
+    public List<Move> legalMoves = new List<Move>(); // list of legal moves for the piece
+
     public Piece(Color color, Type type, int file, int rank)
     {
         pieceColor = color;
@@ -18,20 +20,17 @@ public class Piece
         this.rank = rank;
     }
 
-    public void changePosition(int newFile, int newRank)
+    public void ChangePosition(int newFile, int newRank)
     {
         file = newFile;
         rank = newRank;
     }
 
-    /// <summary>
-    /// Converts a character representation of a piece to a Piece object.
-    /// </summary>
-    /// <param name="c"></param>
-    /// <param name="file"></param>
-    /// <param name="rank"></param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentException"></exception>
+    public void ChangePosition(int newIndex)
+    {
+        (file, rank) = Utils.GetFileRankFromIndex(newIndex, out file, out rank);
+    }
+
     public static Piece GetPieceFromChar(char c, int file, int rank)
     {
         if (char.IsDigit(c))
@@ -73,5 +72,10 @@ public class Piece
         };
 
         return piece.pieceColor == Color.White ? char.ToUpper(c) : c;
+    }
+
+    public bool IsEnemy(Piece other)
+    {
+        return other.pieceColor != pieceColor && other.pieceColor != Color.None;
     }
 }

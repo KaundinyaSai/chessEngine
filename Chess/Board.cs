@@ -5,7 +5,7 @@ public class Board
     public Piece[] pieces_on_board;
     public string fen;
 
-    public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") // Default starting position
     {
         pieces_on_board = new Piece[64];
         this.fen = fen; // Initial FEN string
@@ -40,11 +40,19 @@ public class Board
                 }
             }
         }
+
+        foreach (Piece piece in pieces_on_board)
+        {
+            if (piece.pieceType != Type.None)
+            {
+                MoveGen.GenerateMovesForPiece(piece.index, pieces_on_board);
+            }
+        }
     }
 
     public void PrintBoard()
     {
-        string horizontalBorder = "   +" + string.Concat(Enumerable.Repeat("-----+", 8));
+        string horizontalBorder = "   +" + string.Concat(Enumerable.Repeat("---+", 8));
         Console.WriteLine(horizontalBorder);
         
         for (int rank = 7; rank >= 0; rank--)
@@ -55,13 +63,41 @@ public class Board
                 Piece piece = pieces_on_board[(rank * 8) + file];
                 char symbol = Piece.GetCharFromPiece(piece);
                 if (symbol == '-') symbol = ' ';
-                Console.Write($"  {symbol}  |"); // <-- Wider cell
+                Console.Write($" {symbol} |");
             }
             Console.WriteLine($" {rank + 1}");
             Console.WriteLine(horizontalBorder);
         }
 
-        Console.WriteLine("     a     b     c     d     e     f     g     h");
+        Console.WriteLine("     a   b   c   d   e   f   g   h");
     }
 
+    public void MakeMove(Move move)
+    {
+        int fromIndex = move.fromIndex;
+        int toIndex = move.toIndex;
+
+        if (fromIndex < 0 || fromIndex >= 64 || toIndex < 0 || toIndex >= 64)
+        {
+            throw new ArgumentException("Invalid move indices.");
+        }
+
+        // Move the piece
+        Piece pieceToMove = pieces_on_board[fromIndex];
+        if (!pieceToMove.legalMoves.Contains(move)) {
+            throw new InvalidOperationException("Move is not legal for the piece.");
+        }
+
+        if (pieceToMove.pieceType == Type.None)
+        {
+            throw new InvalidOperationException("No piece at the fromIndex to move.");
+        }
+
+        pieces_on_board[toIndex] = pieceToMove;
+        pieces_on_board[fromIndex] = new Piece(Color.None, Type.None, pieceToMove.index % 8, pieceToMove.index / 8); // Empty square
+
+        // Update the piece's index
+        pieceToMove.ChangePosition(toIndex);
+        pieceToMove.movedNum++; // Increment the move count for the piece
+    }
 }

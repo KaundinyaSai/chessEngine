@@ -3,10 +3,9 @@
 Chess/bin/
 Chess/obj/
 
-ConsoleApp1/bin/
-ConsoleApp1/obj/
+ConsoleApp1/
 
 Chess.sln
 
 Chess/Chess.csproj
-ConsoleApp1/ConsoleApp1.csproj
+
