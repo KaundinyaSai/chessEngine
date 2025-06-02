@@ -23,7 +23,18 @@ public static class MoveGen
         ]);
 
 
-    public static void GenerateMovesForPiece(int startIndex, Piece[] pieces)
+    public static void GenerateMovesForAllPieces(Piece[] pieces, Move? lastMove)
+    {
+        for (int i = 0; i < pieces.Length; i++)
+        {
+            if (pieces[i].pieceType != Type.None)
+            {
+                GenerateMovesForPiece(i, pieces, lastMove);
+            }
+        }
+    }
+
+    public static void GenerateMovesForPiece(int startIndex, Piece[] pieces, Move? lastMove)
     {
         Piece thisPiece = pieces[startIndex];
         thisPiece.legalMoves.Clear();
@@ -31,7 +42,7 @@ public static class MoveGen
         switch (thisPiece.pieceType)
         {
             case Type.Pawn:
-                thisPiece.legalMoves.AddRange(MoveGen.GeneratePawnMoves(startIndex, pieces));
+                thisPiece.legalMoves.AddRange(GeneratePawnMoves(startIndex, pieces, lastMove));
                 break;
             case Type.Rook:
                 thisPiece.legalMoves.AddRange(GenerateSlideMoves(startIndex, rookOffsets, pieces));
@@ -46,7 +57,7 @@ public static class MoveGen
                 thisPiece.legalMoves.AddRange(GenerateLeaperMoves(startIndex, pieces, KnightLookUpTable));
                 break;
             case Type.King:
-                thisPiece.legalMoves.AddRange(GenerateLeaperMoves(startIndex, pieces, KingLookUpTable));
+                thisPiece.legalMoves.AddRange(GenerateKingMoves(startIndex, pieces));
                 break;
             default:
                 throw new ArgumentException("Cannot generate moves for an empty square.");
@@ -133,7 +144,44 @@ public static class MoveGen
         return moves;
     }
 
-    public static List<Move> GeneratePawnMoves(int startIndex, Piece[] pieces)
+    public static List<Move> GenerateKingMoves(int startIndex, Piece[] pieces)
+    {
+        List<Move> moves = GenerateLeaperMoves(startIndex, pieces, KingLookUpTable);
+        Piece king = pieces[startIndex];
+        if (king.movedNum > 0)
+            return moves;
+
+        bool isWhite = king.pieceColor == Color.White;
+
+        int kingSideRookIndex = isWhite ? 7 : 63;
+        int queenSideRookIndex = isWhite ? 0 : 56;
+        int kingIndex = isWhite ? 4 : 60;
+
+        // King-side castling
+        if (pieces[kingSideRookIndex].pieceType == Type.Rook && pieces[kingSideRookIndex].movedNum == 0)
+        {
+            if (pieces[kingIndex + 1].pieceType == Type.None && pieces[kingIndex + 2].pieceType == Type.None)
+            {
+                moves.Add(new Move(startIndex, kingIndex + 2));
+            }
+        }
+
+        // Queen-side castling
+        if (pieces[queenSideRookIndex].pieceType == Type.Rook && pieces[queenSideRookIndex].movedNum == 0)
+        {
+            if (pieces[kingIndex - 1].pieceType == Type.None &&
+                pieces[kingIndex - 2].pieceType == Type.None &&
+                pieces[kingIndex - 3].pieceType == Type.None)
+            {
+                moves.Add(new Move(startIndex, kingIndex - 2));
+            }
+        }
+
+        return moves;
+    }
+
+
+    public static List<Move> GeneratePawnMoves(int startIndex, Piece[] pieces, Move? lastMove)
     {
         List<Move> moves = new();
         Piece thisPiece = pieces[startIndex];
@@ -182,11 +230,33 @@ public static class MoveGen
         }
 
         // Check for en passant captures
-        int enPassantRow = thisPiece.pieceColor == Color.White ? 4 : 3; // En passant row for White and Black
+        int enPassantRank = thisPiece.pieceColor == Color.White ? 4 : 3;
+
+        if (thisPiece.rank == enPassantRank && lastMove != null)
+        {
+            int lastFrom = lastMove.fromIndex;
+            int lastTo = lastMove.toIndex;
+
+            Piece lastMovedPiece = pieces[lastTo];
+
+            if (lastMovedPiece.pieceType == Type.Pawn && Math.Abs(lastTo - lastFrom) == 16)
+            {
+                int diff = lastTo - startIndex;
+
+                if (diff == 1 || diff == -1) // The pawn is directly to the left or right
+                {
+                    int enPassantCaptureIndex = lastTo + (thisPiece.pieceColor == Color.White ? 8 : -8);
+
+                    if (pieces[enPassantCaptureIndex].pieceType == Type.None)
+                    {
+                        moves.Add(new Move(startIndex, enPassantCaptureIndex));
+                    }
+                }
+            }
+        }
 
 
         return moves;
-        
     }
 
 }

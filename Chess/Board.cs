@@ -41,13 +41,7 @@ public class Board
             }
         }
 
-        foreach (Piece piece in pieces_on_board)
-        {
-            if (piece.pieceType != Type.None)
-            {
-                MoveGen.GenerateMovesForPiece(piece.index, pieces_on_board);
-            }
-        }
+        MoveGen.GenerateMovesForAllPieces(pieces_on_board, null);
     }
 
     public void PrintBoard()
@@ -62,7 +56,6 @@ public class Board
             {
                 Piece piece = pieces_on_board[(rank * 8) + file];
                 char symbol = Piece.GetCharFromPiece(piece);
-                if (symbol == '-') symbol = ' ';
                 Console.Write($" {symbol} |");
             }
             Console.WriteLine($" {rank + 1}");
@@ -71,7 +64,6 @@ public class Board
 
         Console.WriteLine("     a   b   c   d   e   f   g   h");
     }
-
     public void MakeMove(Move move)
     {
         int fromIndex = move.fromIndex;
@@ -93,8 +85,79 @@ public class Board
             throw new InvalidOperationException("No piece at the fromIndex to move.");
         }
 
+        // Capture info BEFORE updating the board
+        move.movedPiece = pieceToMove;
+        move.capturedPiece = pieces_on_board[toIndex];
+
         pieces_on_board[toIndex] = pieceToMove;
         pieces_on_board[fromIndex] = new Piece(Color.None, Type.None, pieceToMove.index % 8, pieceToMove.index / 8); // Empty square
+
+        // Extra logic for castling
+        if (pieceToMove.pieceType == Type.King && Math.Abs(fromIndex - toIndex) == 2)
+        {
+            // kingside
+            if (toIndex == fromIndex + 2)
+            {
+                int rookFromIndex = fromIndex + 3; // Rook moves from the right
+                int rookToIndex = toIndex - 1; // Rook moves to the left
+
+                Piece rook = pieces_on_board[rookFromIndex];
+
+                pieces_on_board[rookToIndex] = rook;
+                pieces_on_board[rookFromIndex] = new Piece(Color.None, Type.None, rook.index % 8, rook.index / 8); // Empty square
+                rook.ChangePosition(rookToIndex);
+                rook.movedNum++; // Increment the move count for the rook
+                move.shortCastle = true; // Indicate that this is a kingside castle
+            }
+            // queenside
+            else if (toIndex == fromIndex - 2)
+            {
+                int rookFromIndex = fromIndex - 4; // Rook moves from the left
+                int rookToIndex = toIndex + 1; // Rook moves to the right
+
+                Piece rook = pieces_on_board[rookFromIndex];
+
+                pieces_on_board[rookToIndex] = rook;
+                pieces_on_board[rookFromIndex] = new Piece(Color.None, Type.None, rook.index % 8, rook.index / 8); // Empty square
+                rook.ChangePosition(rookToIndex);
+                rook.movedNum++; // Increment the move count for the rook
+                move.longCastle = true; // Indicate that this is a queenside castle
+            }
+        }
+
+
+        // Extra logic for en passant
+        // Check if pieceToMove is of type pawn, the move is a diagonal move, and the captured piece is empty
+
+        if (pieceToMove.pieceType == Type.Pawn && (Math.Abs(fromIndex - toIndex) == 9 || Math.Abs(fromIndex - toIndex) == 7))
+        {
+            // Check if the move is an en passant capture
+            if (move.capturedPiece.pieceType == Type.None)
+            {
+                int enPassantIndex = toIndex + (pieceToMove.pieceColor == Color.White ? -8 : 8);
+                move.isEnPassant = true;
+                move.capturedPiece = pieces_on_board[enPassantIndex]; // The pawn that was captured en passant
+                pieces_on_board[enPassantIndex] = new Piece(Color.None, Type.None, enPassantIndex % 8, enPassantIndex / 8); // Remove the captured pawn
+            }
+        }
+
+        // Extra logic for promotion
+        if (move.promotionType != null && pieceToMove.pieceType == Type.Pawn)
+        {
+            if (move.promotionType is Type.King or Type.Pawn)
+            {
+                throw new InvalidOperationException("Cannot promote to King or Pawn.");
+            }
+
+            int promotionRank = pieceToMove.pieceColor == Color.White ? 7 : 0; // Promotion rank for white is 7, for black is 0
+
+            if (move.toIndex / 8 == promotionRank)
+            {
+                // Replace the pawn with the promoted piece
+                pieces_on_board[toIndex] = new Piece(pieceToMove.pieceColor, move.promotionType.Value, toIndex % 8, toIndex / 8);
+                move.movedPiece = pieces_on_board[toIndex]; // Update the moved piece in the move object
+            }
+        }
 
         // Update the piece's index
         pieceToMove.ChangePosition(toIndex);

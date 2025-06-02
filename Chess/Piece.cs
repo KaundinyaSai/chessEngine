@@ -57,7 +57,7 @@ public class Piece
     {
         if (piece.pieceType == Type.None)
         {
-            return '-'; // Represents an empty square
+            return ' ';
         }
 
         char c = piece.pieceType switch
