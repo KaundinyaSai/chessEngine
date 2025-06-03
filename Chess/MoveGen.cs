@@ -23,15 +23,68 @@ public static class MoveGen
         ]);
 
 
+
+    // Attack maps for white and black pieces, used to check if a square is attacked by the opposite color
+    // bitboards are used to represent the attack map, where each bit represents a square on the board.
+    
+    public static ulong whiteAttackMap = 0; // 0 means square not attacked, 1 means square attacked
+    public static ulong blackAttackMap = 0; // Same here, but for black pieces
+
+    public static ulong whitePawnAttackMap = 0; // Extra attack maps for pawns as the square in front of them shouldnt marked as
+    //attacked, but the squares diagonally in front of them should be marked as attacked
+    public static ulong blackPawnAttackMap = 0; // Same here, but for black pawns
+
     public static void GenerateMovesForAllPieces(Piece[] pieces, Move? lastMove)
     {
+        whiteAttackMap = 0; // Reset attack
+        blackAttackMap = 0;
+        whitePawnAttackMap = 0; // Reset pawn attack maps
+        blackPawnAttackMap = 0;
         for (int i = 0; i < pieces.Length; i++)
         {
-            if (pieces[i].pieceType != Type.None)
+            if (pieces[i].pieceType == Type.None)
+                continue; // Skip empty squares
+
+            GenerateMovesForPiece(i, pieces, lastMove);
+            foreach (Move move in pieces[i].legalMoves)
             {
-                GenerateMovesForPiece(i, pieces, lastMove);
+                ulong attackBitboard = Utils.GetBitboardFromIndex(move.toIndex);
+                if (pieces[i].pieceColor == Color.White)
+                {
+
+                    // The bitwise OR operator (|) combines the attack bitboard with the existing attack map
+                    // effectively adding the new attack square to the map.
+                    // It returns 1 if either bit is 1 or both are 1, otherwise it returns 0.
+                    // This means that if the square is already attacked, it will remain attacked.
+                    if (pieces[i].pieceType == Type.Pawn)
+                    {
+                        int diff = move.toIndex - i;
+                        if (diff == 7 || diff == 9) // Only diagonals (for white)
+                            whitePawnAttackMap |= attackBitboard;
+                    }
+                    else
+                    {
+                        whiteAttackMap |= attackBitboard;
+                    }
+                }
+                else
+                {
+                    if (pieces[i].pieceType == Type.Pawn)
+                    {
+                        int diff = move.toIndex - i;
+                        if (diff == -7 || diff == -9) // Only diagonals (for black)
+                            blackPawnAttackMap |= attackBitboard;
+                    }
+                    else
+                    {
+                        blackAttackMap |= attackBitboard;
+                    }
+                }
+
             }
         }
+        whiteAttackMap |= whitePawnAttackMap;
+        blackAttackMap |= blackPawnAttackMap;
     }
 
     public static void GenerateMovesForPiece(int startIndex, Piece[] pieces, Move? lastMove)

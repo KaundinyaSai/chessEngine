@@ -5,6 +5,9 @@ public class Board
     public Piece[] pieces_on_board;
     public string fen;
 
+    public int whiteKingIndex => Array.FindIndex(pieces_on_board, p => p.pieceType == Type.King && p.pieceColor == Color.White);
+    public int blackKingIndex => Array.FindIndex(pieces_on_board, p => p.pieceType == Type.King && p.pieceColor == Color.Black);
+
     public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") // Default starting position
     {
         pieces_on_board = new Piece[64];
@@ -48,7 +51,7 @@ public class Board
     {
         string horizontalBorder = "   +" + string.Concat(Enumerable.Repeat("---+", 8));
         Console.WriteLine(horizontalBorder);
-        
+
         for (int rank = 7; rank >= 0; rank--)
         {
             Console.Write($" {rank + 1} |");
@@ -76,7 +79,8 @@ public class Board
 
         // Move the piece
         Piece pieceToMove = pieces_on_board[fromIndex];
-        if (!pieceToMove.legalMoves.Contains(move)) {
+        if (!pieceToMove.legalMoves.Contains(move))
+        {
             throw new InvalidOperationException("Move is not legal for the piece.");
         }
 
@@ -162,5 +166,64 @@ public class Board
         // Update the piece's index
         pieceToMove.ChangePosition(toIndex);
         pieceToMove.movedNum++; // Increment the move count for the piece
+    }
+
+    public void UnmakeMove(Move move)
+    {
+        int fromIndex = move.fromIndex;
+        int toIndex = move.toIndex;
+
+        if (fromIndex < 0 || fromIndex >= 64 || toIndex < 0 || toIndex >= 64)
+        {
+            throw new ArgumentException("Invalid move indices.");
+        }
+
+        // Restore the piece at the fromIndex
+
+        // ?? checks if piece is null, if it is, it assigns a new Piece with default values (Empty)
+        pieces_on_board[fromIndex] = move.movedPiece ?? new Piece(Color.None, Type.None, fromIndex % 8, fromIndex / 8);
+        
+        pieces_on_board[toIndex] = move.capturedPiece ?? new Piece(Color.None, Type.None, toIndex % 8, toIndex / 8);
+        
+
+        // Restore the piece's position
+        move.movedPiece?.ChangePosition(fromIndex);
+        
+        move.capturedPiece?.ChangePosition(toIndex);
+        
+    
+        // Decrement the move count for the moved piece
+        if (move.movedPiece != null)
+        {
+            move.movedPiece.movedNum--;
+        }
+
+        // If it was a castling move, restore the rook's position
+        if (move.shortCastle || move.longCastle)
+        {
+            int rookFromIndex = move.shortCastle ? fromIndex + 3 : fromIndex - 4;
+            int rookToIndex = move.shortCastle ? toIndex - 1 : toIndex + 1;
+
+            Piece rook = pieces_on_board[rookToIndex];
+            pieces_on_board[rookFromIndex] = rook;
+            pieces_on_board[rookToIndex] = new Piece(Color.None, Type.None, rook.index % 8, rook.index / 8); // Empty square
+            rook.ChangePosition(rookFromIndex);
+            rook.movedNum--; // Decrement the move count for the rook
+        }
+
+        // If it was an en passant capture, restore the captured pawn
+        if (move.isEnPassant)
+        {
+            int enPassantIndex = toIndex + (move.movedPiece?.pieceColor == Color.White ? -8 : 8);
+
+            // Restore captured pawn
+            if (move.capturedPiece != null)
+            {
+                pieces_on_board[enPassantIndex] = new Piece(move.capturedPiece.pieceColor, Type.Pawn, enPassantIndex % 8, enPassantIndex / 8);
+            }
+
+            // Clear the square the capturing pawn landed on
+            pieces_on_board[toIndex] = new Piece(Color.None, Type.None, toIndex % 8, toIndex / 8);
+        }
     }
 }
