@@ -31,6 +31,11 @@ public class GameState
 
     public void MakeMove(Move move)
     {
+        if (!IsStrictlyLegalMove(move))
+        {
+            throw new InvalidOperationException("Illegal move attempted. Leaves king in check.");
+        }
+
         board.MakeMove(move);
 
         moveHistory.Add(move);
@@ -61,5 +66,20 @@ public class GameState
         {
             fullMoveNumber--;
         }
+    }
+
+    public bool IsStrictlyLegalMove(Move move)
+    {
+        board.MakeMove(move);
+        Color pieceColor = move.movedPiece?.pieceColor ?? Color.None;
+
+        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, move);
+
+        bool isInCheck = pieceColor == Color.White ? whiteKingInCheck : blackKingInCheck;
+        board.UnmakeMove(move);
+
+        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, moveHistory.LastOrDefault());
+
+        return !isInCheck;
     }
 }
