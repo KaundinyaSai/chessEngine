@@ -48,4 +48,14 @@ public class Move
     {
         return HashCode.Combine(fromIndex, toIndex);
     }
+
+
+    public string ToAlgebraic()
+    {
+        string from = Utils.GetAlgebraicNotationFromIndex(fromIndex);
+        string to = Utils.GetAlgebraicNotationFromIndex(toIndex);
+        string promotion = promotionType != null ? "=" + promotionType?.ToString().ToLower() : "";
+
+        return $"{from}-{to}{promotion}";
+    }
 }

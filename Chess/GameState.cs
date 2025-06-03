@@ -8,6 +8,11 @@ public class GameState
     public int fullMoveNumber; // Full move number in the game
     public List<Move> moveHistory; // History of moves made in the game
 
+    public bool canWhiteShortCastle;
+    public bool canWhiteLongCastle;
+    public bool canBlackShortCastle;
+    public bool canBlackLongCastle;
+
     // The bitwise AND (&) operator returns 1 if both bits are 1, otherwise it returns 0.
     // So we use get the bitboard of the king's index (with only one bit set to one, which is the king's index)
     // and when we & that with the attack map of the opposite color, it will return 0 if and only if the bit at the 
@@ -19,7 +24,9 @@ public class GameState
     public GameState(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     {
         board = new Board(fen);
-        board.LoadFromFEN(fen);
+
+        Utils.GetCastlingRightsFromFEN(fen, out canWhiteShortCastle, out canWhiteLongCastle, out canBlackShortCastle
+        , out canBlackLongCastle);
 
         currentTurn = Color.White;
         halfMoveClock = 0;
@@ -27,6 +34,12 @@ public class GameState
         moveHistory = new List<Move>();
 
         board.LoadFromFEN(fen);
+    }
+
+    public void LoadBoard()
+    {
+        board.LoadFromFEN(board.fen);
+        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, null, this);
     }
 
     public void MakeMove(Move move)
@@ -41,7 +54,7 @@ public class GameState
         moveHistory.Add(move);
         currentTurn = currentTurn == Color.White ? Color.Black : Color.White;
 
-        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, moveHistory.LastOrDefault());
+        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, moveHistory.LastOrDefault(), this);
 
         if (currentTurn == Color.White)
         {
@@ -60,7 +73,7 @@ public class GameState
 
         currentTurn = currentTurn == Color.White ? Color.Black : Color.White;
 
-        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, moveHistory.LastOrDefault());
+        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, moveHistory.LastOrDefault(), this);
 
         if (currentTurn == Color.White)
         {
@@ -73,13 +86,26 @@ public class GameState
         board.MakeMove(move);
         Color pieceColor = move.movedPiece?.pieceColor ?? Color.None;
 
-        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, move);
+        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, move, this);
 
         bool isInCheck = pieceColor == Color.White ? whiteKingInCheck : blackKingInCheck;
         board.UnmakeMove(move);
 
-        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, moveHistory.LastOrDefault());
+        MoveGen.GenerateMovesForAllPieces(board.pieces_on_board, moveHistory.LastOrDefault(), this);
 
         return !isInCheck;
+    }
+
+    public List<Move> GetAllMoves()
+    {
+        List<Move> allMoves = new List<Move>();
+        foreach (Piece piece in board.pieces_on_board)
+        {
+            if (piece.pieceColor != currentTurn) continue;
+
+            allMoves.AddRange(piece.legalMoves);
+        }
+        return allMoves;
+    
     }
 }

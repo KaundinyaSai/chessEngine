@@ -50,4 +50,32 @@ public static class Utils
 
         return 1UL << index; // UL just means "unsigned long", or a unsigned 64 bit integer (ulong in c#).
     }
+
+    public static string GetAlgebraicNotationFromIndex(int index)
+    {
+        int file = index % 8; // Get the file (column) from the index
+        int rank = index / 8; // Get the rank (row) from the index
+
+        char fileChar = (char)('a' + file); // Convert file to a letter (0 -> 'a', 1 -> 'b', ..., 7 -> 'h')
+        int rankNumber = rank + 1; // Convert rank to a number (0 -> 1, 1 -> 2, ..., 7 -> 8)
+
+        return $"{fileChar}{rankNumber}"; // Combine file and rank into algebraic notation
+    }
+
+    public static void GetCastlingRightsFromFEN(string fen, out bool canWhiteShortCastle, out bool canWhiteLongCastle,
+    out bool canBlackShortCastle, out bool canBlackLongCastle)
+    {
+        // FEN format: [piece placement] [active color] [castling rights] [en passant] [halfmove] [fullmove]
+        // Example: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        var parts = fen.Split(' ');
+        if (parts.Length < 3)
+            throw new ArgumentException("Invalid FEN string.");
+
+        string castlingRights = parts[2];
+
+        canWhiteShortCastle = castlingRights.Contains('K');
+        canWhiteLongCastle = castlingRights.Contains('Q');
+        canBlackShortCastle = castlingRights.Contains('k');
+        canBlackLongCastle = castlingRights.Contains('q');
+    }
 }

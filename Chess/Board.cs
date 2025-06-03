@@ -43,8 +43,6 @@ public class Board
                 }
             }
         }
-
-        MoveGen.GenerateMovesForAllPieces(pieces_on_board, null);
     }
 
     public void PrintBoard()
@@ -182,16 +180,16 @@ public class Board
 
         // ?? checks if piece is null, if it is, it assigns a new Piece with default values (Empty)
         pieces_on_board[fromIndex] = move.movedPiece ?? new Piece(Color.None, Type.None, fromIndex % 8, fromIndex / 8);
-        
+
         pieces_on_board[toIndex] = move.capturedPiece ?? new Piece(Color.None, Type.None, toIndex % 8, toIndex / 8);
-        
+
 
         // Restore the piece's position
         move.movedPiece?.ChangePosition(fromIndex);
-        
+
         move.capturedPiece?.ChangePosition(toIndex);
-        
-    
+
+
         // Decrement the move count for the moved piece
         if (move.movedPiece != null)
         {
@@ -226,4 +224,6 @@ public class Board
             pieces_on_board[toIndex] = new Piece(Color.None, Type.None, toIndex % 8, toIndex / 8);
         }
     }
+    
+    
 }

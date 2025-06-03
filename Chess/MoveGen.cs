@@ -34,18 +34,23 @@ public static class MoveGen
     //attacked, but the squares diagonally in front of them should be marked as attacked
     public static ulong blackPawnAttackMap = 0; // Same here, but for black pawns
 
-    public static void GenerateMovesForAllPieces(Piece[] pieces, Move? lastMove)
+    private static List<Move> moveList = new(); // This is used to store the legal moves for each piece
+    // This is a static list so that we can reuse it for each piece, instead of creating a new list every time
+
+    public static void GenerateMovesForAllPieces(Piece[] pieces, Move? lastMove, GameState game)
     {
         whiteAttackMap = 0; // Reset attack
         blackAttackMap = 0;
         whitePawnAttackMap = 0; // Reset pawn attack maps
         blackPawnAttackMap = 0;
+
+
         for (int i = 0; i < pieces.Length; i++)
         {
             if (pieces[i].pieceType == Type.None)
                 continue; // Skip empty squares
 
-            GenerateMovesForPiece(i, pieces, lastMove);
+            GenerateMovesForPiece(i, pieces, lastMove, game);
             foreach (Move move in pieces[i].legalMoves)
             {
                 ulong attackBitboard = Utils.GetBitboardFromIndex(move.toIndex);
@@ -87,7 +92,7 @@ public static class MoveGen
         blackAttackMap |= blackPawnAttackMap;
     }
 
-    public static void GenerateMovesForPiece(int startIndex, Piece[] pieces, Move? lastMove)
+    public static void GenerateMovesForPiece(int startIndex, Piece[] pieces, Move? lastMove, GameState game)
     {
         Piece thisPiece = pieces[startIndex];
         thisPiece.legalMoves.Clear();
@@ -110,7 +115,7 @@ public static class MoveGen
                 thisPiece.legalMoves.AddRange(GenerateLeaperMoves(startIndex, pieces, KnightLookUpTable));
                 break;
             case Type.King:
-                thisPiece.legalMoves.AddRange(GenerateKingMoves(startIndex, pieces));
+                thisPiece.legalMoves.AddRange(GenerateKingMoves(startIndex, pieces, game));
                 break;
             default:
                 throw new ArgumentException("Cannot generate moves for an empty square.");
@@ -197,7 +202,7 @@ public static class MoveGen
         return moves;
     }
 
-    public static List<Move> GenerateKingMoves(int startIndex, Piece[] pieces)
+    public static List<Move> GenerateKingMoves(int startIndex, Piece[] pieces, GameState game)
     {
         List<Move> moves = GenerateLeaperMoves(startIndex, pieces, KingLookUpTable);
         Piece king = pieces[startIndex];
@@ -210,6 +215,17 @@ public static class MoveGen
         int queenSideRookIndex = isWhite ? 0 : 56;
         int kingIndex = isWhite ? 4 : 60;
 
+        if (pieces[kingIndex].pieceType != Type.King) {
+            return moves;
+        }
+
+        bool canShortCastle = pieces[kingIndex].pieceColor == Color.White ? game.canWhiteShortCastle : game.canBlackShortCastle;
+
+        if (!canShortCastle)
+        {
+            return moves;
+        }
+
         // King-side castling
         if (pieces[kingSideRookIndex].pieceType == Type.Rook && pieces[kingSideRookIndex].movedNum == 0)
         {
@@ -217,6 +233,13 @@ public static class MoveGen
             {
                 moves.Add(new Move(startIndex, kingIndex + 2));
             }
+        }
+
+        bool canLongCastle = pieces[kingIndex].pieceColor == Color.White ? game.canWhiteLongCastle : game.canBlackLongCastle;
+
+        if (!canLongCastle)
+        {
+            return moves;
         }
 
         // Queen-side castling
@@ -268,7 +291,14 @@ public static class MoveGen
         }
 
         // Check for captures               
-        int[] captureOffsets = { singleSquareOffset - 1, singleSquareOffset + 1 }; // Left and right captures
+        int[] captureOffsets;
+        int file = startIndex % 8;
+        if (file == 0) // a-file
+            captureOffsets = new[] { singleSquareOffset + 1 };
+        else if (file == 7) // h-file
+            captureOffsets = new[] { singleSquareOffset - 1 };
+        else
+            captureOffsets = new[] { singleSquareOffset - 1, singleSquareOffset + 1 };
         foreach (int offset in captureOffsets)
         {
             int captureIndex = startIndex + offset;
@@ -294,9 +324,10 @@ public static class MoveGen
 
             if (lastMovedPiece.pieceType == Type.Pawn && Math.Abs(lastTo - lastFrom) == 16)
             {
-                int diff = lastTo - startIndex;
+                int startFile = startIndex % 8;
+                int lastToFile = lastTo % 8;
 
-                if (diff == 1 || diff == -1) // The pawn is directly to the left or right
+                if (Math.Abs(startFile - lastToFile) == 1 && (lastTo / 8 == startIndex / 8)) // The pawn is directly to the left or right
                 {
                     int enPassantCaptureIndex = lastTo + (thisPiece.pieceColor == Color.White ? 8 : -8);
 
