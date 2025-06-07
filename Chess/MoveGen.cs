@@ -1,344 +1,87 @@
-namespace Chess;
+
+using System.Numerics;
+using System.Runtime.InteropServices;
 
 public static class MoveGen
 {
-    // Adding offsets for sliding pieces
-    static readonly int[] rookOffsets = { -1, 1, -8, 8 };
-    static readonly int[] bishopOffsets = { -9, -7, 7, 9 };
-    static readonly int[] queenOffsets = { -1, 1, -8, 8, -9, -7, 7, 9 };
+    static ulong[] KnightLookUpTable = BoardUtils.KnightLookUpInit();
+    static ulong[] KingLookUpTable = BoardUtils.KingLookUpInit();
 
-    // Lookup tables for kings and knights, makes things faster
-    public static List<int>[] KnightLookUpTable { get; } = Utils.LookUpTableInit(
-        [
-            (-2, -1), (-2, 1),
-            (-1, -2), (-1, 2),
-            (1, -2), (1, 2),
-            (2, -1), (2, 1)
-        ]);
-    public static List<int>[] KingLookUpTable { get; } = Utils.LookUpTableInit(
-        [
-            (-1, -1), (-1, 0), (-1, 1),
-            (0, -1),           (0, 1),
-            (1, -1), (1, 0), (1, 1)
-        ]);
-
-
-
-    // Attack maps for white and black pieces, used to check if a square is attacked by the opposite color
-    // bitboards are used to represent the attack map, where each bit represents a square on the board.
-    
-    public static ulong whiteAttackMap = 0; // 0 means square not attacked, 1 means square attacked
-    public static ulong blackAttackMap = 0; // Same here, but for black pieces
-
-    public static ulong whitePawnAttackMap = 0; // Extra attack maps for pawns as the square in front of them shouldnt marked as
-    //attacked, but the squares diagonally in front of them should be marked as attacked
-    public static ulong blackPawnAttackMap = 0; // Same here, but for black pawns
-
-    private static List<Move> moveList = new(); // This is used to store the legal moves for each piece
-    // This is a static list so that we can reuse it for each piece, instead of creating a new list every time
-
-    public static void GenerateMovesForAllPieces(Piece[] pieces, Move? lastMove, GameState game)
+    public static ulong PawnMoves(Board board, PieceColor color)
     {
-        whiteAttackMap = 0; // Reset attack
-        blackAttackMap = 0;
-        whitePawnAttackMap = 0; // Reset pawn attack maps
-        blackPawnAttackMap = 0;
+        ulong moves = 0;
+        ulong bitboard = color == PieceColor.White ? board.WhitePawns : board.BlackPawns;
+        ulong empty = board.EmptySquares;
+        ulong oppBB = color == PieceColor.White ? board.BlackPieces : board.WhitePieces;
 
-
-        for (int i = 0; i < pieces.Length; i++)
+        if (color == PieceColor.White)
         {
-            if (pieces[i].pieceType == Type.None)
-                continue; // Skip empty squares
+            // Single pushes
+            ulong singlePush = (bitboard << 8) & empty;
+            moves |= singlePush;
 
-            GenerateMovesForPiece(i, pieces, lastMove, game);
-            foreach (Move move in pieces[i].legalMoves)
-            {
-                ulong attackBitboard = Utils.GetBitboardFromIndex(move.toIndex);
-                if (pieces[i].pieceColor == Color.White)
-                {
+            // Double pushes (must be on rank 2 and square in front must also be empty)
+            ulong rank2 = 0x000000000000FF00UL; // bitboard for pawns on rank 2 in hex
+            ulong doublePush = ((bitboard & rank2) << 8) & empty; // bitboard & ran 2 checks if pawn is on rank 2.
+            doublePush = (doublePush << 8) & empty;
+            moves |= doublePush;
 
-                    // The bitwise OR operator (|) combines the attack bitboard with the existing attack map
-                    // effectively adding the new attack square to the map.
-                    // It returns 1 if either bit is 1 or both are 1, otherwise it returns 0.
-                    // This means that if the square is already attacked, it will remain attacked.
-                    if (pieces[i].pieceType == Type.Pawn)
-                    {
-                        int diff = move.toIndex - i;
-                        if (diff == 7 || diff == 9) // Only diagonals (for white)
-                            whitePawnAttackMap |= attackBitboard;
-                    }
-                    else
-                    {
-                        whiteAttackMap |= attackBitboard;
-                    }
-                }
-                else
-                {
-                    if (pieces[i].pieceType == Type.Pawn)
-                    {
-                        int diff = move.toIndex - i;
-                        if (diff == -7 || diff == -9) // Only diagonals (for black)
-                            blackPawnAttackMap |= attackBitboard;
-                    }
-                    else
-                    {
-                        blackAttackMap |= attackBitboard;
-                    }
-                }
-
-            }
+            // Captures
+            ulong leftCaptures = (bitboard << 7) & oppBB & ~Board.FileH;
+            ulong rightCaptures = (bitboard << 9) & oppBB & ~Board.FileA;
+            moves |= leftCaptures | rightCaptures;
         }
-        whiteAttackMap |= whitePawnAttackMap;
-        blackAttackMap |= blackPawnAttackMap;
-    }
-
-    public static void GenerateMovesForPiece(int startIndex, Piece[] pieces, Move? lastMove, GameState game)
-    {
-        Piece thisPiece = pieces[startIndex];
-        thisPiece.legalMoves.Clear();
-
-        switch (thisPiece.pieceType)
+        else // Black
         {
-            case Type.Pawn:
-                thisPiece.legalMoves.AddRange(GeneratePawnMoves(startIndex, pieces, lastMove));
-                break;
-            case Type.Rook:
-                thisPiece.legalMoves.AddRange(GenerateSlideMoves(startIndex, rookOffsets, pieces));
-                break;
-            case Type.Bishop:
-                thisPiece.legalMoves.AddRange(GenerateSlideMoves(startIndex, bishopOffsets, pieces));
-                break;
-            case Type.Queen:
-                thisPiece.legalMoves.AddRange(GenerateSlideMoves(startIndex, queenOffsets, pieces));
-                break;
-            case Type.Knight:
-                thisPiece.legalMoves.AddRange(GenerateLeaperMoves(startIndex, pieces, KnightLookUpTable));
-                break;
-            case Type.King:
-                thisPiece.legalMoves.AddRange(GenerateKingMoves(startIndex, pieces, game));
-                break;
-            default:
-                throw new ArgumentException("Cannot generate moves for an empty square.");
-        }
-    }
+            // Single pushes
+            ulong singlePush = (bitboard >> 8) & empty; // Right shift for black
+            moves |= singlePush;
 
-    public static List<Move> GenerateSlideMoves(int startIndex, int[] offsets, Piece[] pieces)
-    {
-        List<Move> moves = new();
-        int startRow = startIndex / 8;
-        int startCol = startIndex % 8;
+            // Double pushes (must be on rank 7 and square in front must also be empty)
+            ulong rank7 = 0x00FF000000000000UL; // bitboard for pawns on rank 7 in hex
+            ulong doublePush = ((bitboard & rank7) >> 8) & empty;
+            doublePush = (doublePush >> 8) & empty;
+            moves |= doublePush;
 
-        Piece thisPiece = pieces[startIndex];
-
-        foreach (int offset in offsets)
-        {
-            int currentIndex = startIndex;
-
-            for (int i = 1; i < 8; i++)
-            {
-                int targetIndex = currentIndex + offset;
-
-                if (targetIndex < 0 || targetIndex >= 64)
-                    break;
-
-                int targetRow = targetIndex / 8;
-                int targetCol = targetIndex % 8;
-
-                // Prevent horizontal wraparound
-                if (offset == 1 || offset == -1)
-                {
-                    if (targetRow != startRow)
-                        break;
-                }
-
-                // Prevent diagonal wraparound
-                if (offset == 9 || offset == -9 || offset == 7 || offset == -7)
-                {
-                    // Checks if both the row and column increase by the same amount
-                    // if not, there is diagonal wraparound
-                    if (Math.Abs(targetRow - startRow) != i || Math.Abs(targetCol - startCol) != i)
-                        break;
-                }
-
-                Piece targetPiece = pieces[targetIndex];
-
-                if (targetPiece.pieceType != Type.None)
-                {
-                    if (targetPiece.IsEnemy(thisPiece))
-                        moves.Add(new Move(startIndex, targetIndex));
-                    break;
-                }
-
-                moves.Add(new Move(startIndex, targetIndex));
-                currentIndex = targetIndex;
-            }
+            // Captures
+            ulong leftCaptures = (bitboard >> 9) & oppBB & ~Board.FileH;
+            ulong rightCaptures = (bitboard >> 7) & oppBB & ~Board.FileA;
+            moves |= leftCaptures | rightCaptures;
         }
 
         return moves;
     }
 
-
-    public static List<Move> GenerateLeaperMoves(int startIndex, Piece[] pieces, List<int>[] LookUpTable)
-    // leaper is the term i found online for kings and knights
+    public static ulong KnightMoves(Board board, PieceColor color)
     {
-        List<Move> moves = new();
-        Piece thisPiece = pieces[startIndex];
+        ulong moves = 0UL;
+        ulong bitboard = color == PieceColor.White ? board.WhiteKnights : board.BlackKnights;
+        ulong thisColorPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
 
-        foreach (int targetIndex in LookUpTable[startIndex])
+        while (bitboard != 0)
         {
-            // Check if the target index is within bounds
-            if (targetIndex < 0 || targetIndex >= 64)
-                continue;
-
-            Piece targetPiece = pieces[targetIndex];
-
-            // If the target square is empty or occupied by an enemy piece, add the move
-            if (targetPiece.pieceType == Type.None || targetPiece.IsEnemy(thisPiece))
-            {
-                moves.Add(new Move(startIndex, targetIndex));
-            }
+            int square = BitOperations.TrailingZeroCount(bitboard); // Gets the least significant set bit
+            bitboard = BitBoardUtils.ClearBit(bitboard, square);
+            moves |= KnightLookUpTable[square] & ~thisColorPieces;
+            // repeat till no knight left to add moves to.
         }
 
         return moves;
     }
 
-    public static List<Move> GenerateKingMoves(int startIndex, Piece[] pieces, GameState game)
+    public static ulong KingMoves(Board board, PieceColor color)
     {
-        List<Move> moves = GenerateLeaperMoves(startIndex, pieces, KingLookUpTable);
-        Piece king = pieces[startIndex];
-        if (king.movedNum > 0)
-            return moves;
+        ulong moves = 0UL;
 
-        bool isWhite = king.pieceColor == Color.White;
+        ulong bitboard = color == PieceColor.White ? board.WhiteKing : board.BlackKing;
+        ulong thisColorPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
 
-        int kingSideRookIndex = isWhite ? 7 : 63;
-        int queenSideRookIndex = isWhite ? 0 : 56;
-        int kingIndex = isWhite ? 4 : 60;
-
-        if (pieces[kingIndex].pieceType != Type.King) {
-            return moves;
-        }
-
-        bool canShortCastle = pieces[kingIndex].pieceColor == Color.White ? game.canWhiteShortCastle : game.canBlackShortCastle;
-
-        if (!canShortCastle)
+        while (bitboard != 0)
         {
-            return moves;
+            int square = BitOperations.TrailingZeroCount(bitboard);
+            bitboard = BitBoardUtils.ClearBit(bitboard, square);
+            moves |= KingLookUpTable[square] & ~thisColorPieces;
         }
-
-        // King-side castling
-        if (pieces[kingSideRookIndex].pieceType == Type.Rook && pieces[kingSideRookIndex].movedNum == 0)
-        {
-            if (pieces[kingIndex + 1].pieceType == Type.None && pieces[kingIndex + 2].pieceType == Type.None)
-            {
-                moves.Add(new Move(startIndex, kingIndex + 2));
-            }
-        }
-
-        bool canLongCastle = pieces[kingIndex].pieceColor == Color.White ? game.canWhiteLongCastle : game.canBlackLongCastle;
-
-        if (!canLongCastle)
-        {
-            return moves;
-        }
-
-        // Queen-side castling
-        if (pieces[queenSideRookIndex].pieceType == Type.Rook && pieces[queenSideRookIndex].movedNum == 0)
-        {
-            if (pieces[kingIndex - 1].pieceType == Type.None &&
-                pieces[kingIndex - 2].pieceType == Type.None &&
-                pieces[kingIndex - 3].pieceType == Type.None)
-            {
-                moves.Add(new Move(startIndex, kingIndex - 2));
-            }
-        }
-
-        return moves;
-    }
-
-
-    public static List<Move> GeneratePawnMoves(int startIndex, Piece[] pieces, Move? lastMove)
-    {
-        List<Move> moves = new();
-        Piece thisPiece = pieces[startIndex];
-        int singleSquareOffset = thisPiece.pieceColor == Color.White ? 8 : -8; // White moves up, Black moves down
-        int doubleSquareOffset = thisPiece.pieceColor == Color.White ? 16 : -16; // Double move for pawns
-
-        // Check for single square move
-        int singleSquareIndex = startIndex + singleSquareOffset;
-        if (singleSquareIndex >= 0 && singleSquareIndex < 64)
-        {
-            Piece targetPiece = pieces[singleSquareIndex];
-            if (targetPiece.pieceType == Type.None)
-            {
-                moves.Add(new Move(startIndex, singleSquareIndex));
-
-                // Check for double square move from the starting position
-                int startRank = thisPiece.pieceColor == Color.White ? 1 : 6; // Starting ranks for pawns
-                if (thisPiece.rank == startRank)
-                {
-                    // Check if the double square move is valid
-                    if (startIndex + doubleSquareOffset >= 0 && startIndex + doubleSquareOffset < 64)
-                    {
-                        Piece doubleSquarePiece = pieces[startIndex + doubleSquareOffset];
-                        if (doubleSquarePiece.pieceType == Type.None)
-                        {
-                            moves.Add(new Move(startIndex, startIndex + doubleSquareOffset));
-                        }
-                    }
-                }
-            }
-        }
-
-        // Check for captures               
-        int[] captureOffsets;
-        int file = startIndex % 8;
-        if (file == 0) // a-file
-            captureOffsets = new[] { singleSquareOffset + 1 };
-        else if (file == 7) // h-file
-            captureOffsets = new[] { singleSquareOffset - 1 };
-        else
-            captureOffsets = new[] { singleSquareOffset - 1, singleSquareOffset + 1 };
-        foreach (int offset in captureOffsets)
-        {
-            int captureIndex = startIndex + offset;
-            if (captureIndex >= 0 && captureIndex < 64)
-            {
-                Piece targetPiece = pieces[captureIndex];
-                if (targetPiece.pieceType != Type.None && targetPiece.IsEnemy(thisPiece))
-                {
-                    moves.Add(new Move(startIndex, captureIndex));
-                }
-            }
-        }
-
-        // Check for en passant captures
-        int enPassantRank = thisPiece.pieceColor == Color.White ? 4 : 3;
-
-        if (thisPiece.rank == enPassantRank && lastMove != null)
-        {
-            int lastFrom = lastMove.fromIndex;
-            int lastTo = lastMove.toIndex;
-
-            Piece lastMovedPiece = pieces[lastTo];
-
-            if (lastMovedPiece.pieceType == Type.Pawn && Math.Abs(lastTo - lastFrom) == 16)
-            {
-                int startFile = startIndex % 8;
-                int lastToFile = lastTo % 8;
-
-                if (Math.Abs(startFile - lastToFile) == 1 && (lastTo / 8 == startIndex / 8)) // The pawn is directly to the left or right
-                {
-                    int enPassantCaptureIndex = lastTo + (thisPiece.pieceColor == Color.White ? 8 : -8);
-
-                    if (pieces[enPassantCaptureIndex].pieceType == Type.None)
-                    {
-                        moves.Add(new Move(startIndex, enPassantCaptureIndex));
-                    }
-                }
-            }
-        }
-
 
         return moves;
     }
