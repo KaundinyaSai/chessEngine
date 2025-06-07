@@ -1,4 +1,6 @@
 
+using System.Numerics;
+
 public static class BitBoardUtils
 {
     // Common shit:
@@ -19,6 +21,13 @@ public static class BitBoardUtils
         // We AND it into the bitboard. So if the bit was 1, it would be set to zero. No change if it already was 0.
 
         return bitboard & ~(1UL << squareIndex);
+    }
+
+    public static int PopMS1B(ref ulong bitboard)
+    {
+        int square = BitOperations.TrailingZeroCount(bitboard);
+        bitboard = ClearBit(bitboard, square);
+        return square;
     }
 
     public static ulong ToggleBit(ulong bitboard, int squareIndex)
