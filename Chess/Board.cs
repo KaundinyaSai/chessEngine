@@ -90,11 +90,29 @@ public class Board
                 }
             }
         }
+
+    }
+
+    public void MakeMove(Move move)
+    {
+        Piece pieceToMove = BoardUtils.GetPieceAt(this, move.fromIndex);
+        Piece? capturedPiece = null;
+        if (BitBoardUtils.IsSquareOccupied(AllPieces, move.toIndex))
+        {
+            capturedPiece = BoardUtils.GetPieceAt(this, move.toIndex);
+        }
+
+        ref ulong bitboard = ref BoardUtils.GetBitboardFromPiece(this, pieceToMove);
+        bitboard = BitBoardUtils.ClearBit(bitboard, move.fromIndex);
+        bitboard = BitBoardUtils.SetBit(bitboard, move.toIndex);
+
+        if (capturedPiece == null)
+        {
+            return;
+        }
+
+        ref ulong capturedPieceBitboard = ref BoardUtils.GetBitboardFromPiece(this, capturedPiece.Value);
+        capturedPieceBitboard = BitBoardUtils.ClearBit(capturedPieceBitboard, move.toIndex);
     }
 }
 
-public enum PieceColor
-{
-    White,
-    Black
-}

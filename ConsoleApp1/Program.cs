@@ -1,18 +1,20 @@
 ﻿
 
-Board board = new Board("2Q5/5k2/3K4/5r1K/2b5/3BN2n/4q3/8");
+Board board = new Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
 
-var pawnMoves = MoveGen.QueenMoves(board, PieceColor.White);
+Console.WriteLine("Before move:");
+BoardUtils.PrintBoard(board);
 
-if (pawnMoves.TryGetValue(58, out ulong movesForPawn))
-{
-    Console.WriteLine("Moves for pawn at square 12:");
-    BoardUtils.PrintBitboard(movesForPawn);
-}
-else
-{
-    Console.WriteLine("No legal moves for pawn at square 12.");
-}
+Move move = new Move(12, 63);
+board.MakeMove(move);
+
+BoardUtils.PrintBoard(board);
+
+board.MakeMove(new Move(63, 12));
+BoardUtils.PrintBoard(board);
+
+
+
 
 
 

@@ -74,4 +74,17 @@ public static class BitBoardUtils
 
         return result;
     }
+
+    public static ushort GetBinaryFromPromotionType(PieceType? type)
+    {
+        switch (type)
+        {
+            case null: return 0b0000;
+            case PieceType.Knight: return 0b0001;
+            case PieceType.Bishop: return 0b0010;
+            case PieceType.Rook: return 0b0100;
+            case PieceType.Queen: return 0b1000;
+            default: throw new ArgumentException("Not valid promotion type");
+        }
+    }
 }

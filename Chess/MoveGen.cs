@@ -7,15 +7,14 @@ public static class MoveGen
 
     public static Dictionary<int, ulong> PawnMoves(Board board, PieceColor color)
     {
-        var result = new Dictionary<int, ulong>();
-        ulong bitboard = color == PieceColor.White ? board.WhitePawns : board.BlackPawns;
+        Dictionary<int, ulong> result = new Dictionary<int, ulong>();
+        ulong pawns = color == PieceColor.White ? board.WhitePawns : board.BlackPawns;
         ulong empty = board.EmptySquares;
         ulong opp = color == PieceColor.White ? board.BlackPieces : board.WhitePieces;
 
-        while (bitboard != 0)
+        while (pawns != 0)
         {
-            int square = BitOperations.TrailingZeroCount(bitboard);
-            bitboard &= bitboard - 1; // Clear that bit
+            int square = BitBoardUtils.PopMS1B(ref pawns);
 
             ulong fromBB = 1UL << square;
             ulong moveTargets = 0;
@@ -63,13 +62,12 @@ public static class MoveGen
     public static Dictionary<int, ulong> KnightMoves(Board board, PieceColor color)
     {
         Dictionary<int, ulong> result = new Dictionary<int, ulong>();
-        ulong bitboard = color == PieceColor.White ? board.WhiteKnights : board.BlackKnights;
+        ulong knights = color == PieceColor.White ? board.WhiteKnights : board.BlackKnights;
         ulong ownPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
 
-        while (bitboard != 0)
+        while (knights != 0)
         {
-            int square = BitOperations.TrailingZeroCount(bitboard); // Gets the least significant set bit
-            bitboard = BitBoardUtils.ClearBit(bitboard, square);
+            int square = BitBoardUtils.PopMS1B(ref knights);
             result[square] = KnightLookUpTable[square] & ~ownPieces;
         }
 
@@ -94,110 +92,48 @@ public static class MoveGen
         return result;
     }
 
-    public static Dictionary<int, ulong> RookMoves(Board board, PieceColor color)
+    public static Dictionary<int, ulong> SlidingMoves(Board board, PieceColor color, PieceType type)
     {
         Dictionary<int, ulong> result = new Dictionary<int, ulong>();
 
-        ulong rooks = color == PieceColor.White ? board.WhiteRooks : board.BlackRooks;
-        ulong ownPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
-        ulong opponentPieces = color == PieceColor.White ? board.BlackPieces : board.WhitePieces;
+        ulong bitboard;
 
-        int[] directions = { 8, -8, 1, -1 };
-
-        while (rooks != 0)
+        switch (type)
         {
-            int square = BitBoardUtils.PopMS1B(ref rooks);
-            ulong moves = 0UL;
-
-            foreach (int dir in directions)
-            {
-                int next = square;
-
-                while (true)
-                {
-                    if (IsWrapAround(dir, next))
-                        break;
-
-                    next += dir;
-                    if (next < 0 || next >= 64) break;
-
-                    ulong bit = 1UL << next;
-
-                    if ((bit & ownPieces) != 0) break;
-
-                    moves |= bit;
-
-                    if ((bit & opponentPieces) != 0) break;
-                }
-            }
-
-
-            result[square] = moves;
+            case PieceType.Bishop:
+                bitboard = color == PieceColor.White ? board.WhiteBishops : board.BlackBishops;
+                break;
+            case PieceType.Rook:
+                bitboard = color == PieceColor.White ? board.WhiteRooks : board.BlackRooks;
+                break;
+            case PieceType.Queen:
+                bitboard = color == PieceColor.White ? board.WhiteQueens : board.BlackQueens;
+                break;
+            default: throw new ArgumentException("Not a sliding piece");
         }
 
-        return result;
-    }
-
-
-    public static Dictionary<int, ulong> BishopMoves(Board board, PieceColor color)
-    {
-        Dictionary<int, ulong> result = new Dictionary<int, ulong>();
-
-        ulong bishops = color == PieceColor.White ? board.WhiteBishops : board.BlackBishops;
         ulong ownPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
         ulong opponentPieces = color == PieceColor.White ? board.BlackPieces : board.WhitePieces;
 
-        int[] directions = { 9, 7, -9, -7 }; 
+        int[] directions;
 
-        while (bishops != 0)
+        switch (type)
         {
-            int square = BitBoardUtils.PopMS1B(ref bishops);
-
-            ulong moves = 0UL;
-
-            foreach (int dir in directions)
-            {
-                int next = square;
-
-                while (true)
-                {
-                    if (IsWrapAround(dir, next))
-                        break;
-
-                    next += dir;
-                    if (next < 0 || next >= 64) break;
-
-                    ulong bit = 1UL << next;
-
-                    if ((bit & ownPieces) != 0) break;
-
-                    moves |= bit;
-
-                    if ((bit & opponentPieces) != 0) break;
-                }
-            }
-
-
-            result[square] = moves;
+            case PieceType.Bishop:
+                directions = [9, 7, -9, -7];
+                break;
+            case PieceType.Rook:
+                directions = [8, 1, -8, -1];
+                break;
+            case PieceType.Queen:
+                directions = [8, 1, -8, -1, 9, 7, -9, -7];
+                break;
+            default: throw new ArgumentException("Not a sliding piece");
         }
 
-        return result;
-    }
-
-    public static Dictionary<int, ulong> QueenMoves(Board board, PieceColor color)
-    {
-        Dictionary<int, ulong> result = new Dictionary<int, ulong>();
-
-        ulong queens = color == PieceColor.White ? board.WhiteQueens : board.BlackQueens;
-        ulong ownPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
-        ulong opponentPieces = color == PieceColor.White ? board.BlackPieces : board.WhitePieces;
-
-        int[] directions = {8, 1, -8, -1, 9, 7, -9, -7}; 
-
-        while (queens != 0)
+        while (bitboard != 0)
         {
-            int square = BitBoardUtils.PopMS1B(ref queens);
-
+            int square = BitBoardUtils.PopMS1B(ref bitboard);
             ulong moves = 0UL;
 
             foreach (int dir in directions)
