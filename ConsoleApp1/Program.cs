@@ -1,17 +1,17 @@
 ﻿
 
-Board board = new Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
+GameState game = new GameState();
 
-Console.WriteLine("Before move:");
-BoardUtils.PrintBoard(board);
+BoardUtils.PrintBoard(game.board);
+Console.WriteLine(game.enPassantSquare);
 
-Move move = new Move(12, 63);
-board.MakeMove(move);
+game.MakeMove(new Move(12, 28));
+BoardUtils.PrintBoard(game.board);
 
-BoardUtils.PrintBoard(board);
+Console.WriteLine(game.enPassantSquare);
 
-board.MakeMove(new Move(63, 12));
-BoardUtils.PrintBoard(board);
+
+
 
 
 

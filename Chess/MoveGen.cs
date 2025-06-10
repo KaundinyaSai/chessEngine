@@ -5,8 +5,10 @@ public static class MoveGen
     static ulong[] KnightLookUpTable = BoardUtils.KnightLookUpInit();
     static ulong[] KingLookUpTable = BoardUtils.KingLookUpInit();
 
-    public static Dictionary<int, ulong> PawnMoves(Board board, PieceColor color)
+    public static Dictionary<int, ulong> PawnMoves(GameState game, PieceColor color)
     {
+        Board board = game.board;
+
         Dictionary<int, ulong> result = new Dictionary<int, ulong>();
         ulong pawns = color == PieceColor.White ? board.WhitePawns : board.BlackPawns;
         ulong empty = board.EmptySquares;
@@ -15,7 +17,6 @@ public static class MoveGen
         while (pawns != 0)
         {
             int square = BitBoardUtils.PopMS1B(ref pawns);
-
             ulong fromBB = 1UL << square;
             ulong moveTargets = 0;
 
@@ -26,30 +27,75 @@ public static class MoveGen
                 if ((oneAhead & empty) != 0)
                 {
                     moveTargets |= oneAhead;
-                    if ((fromBB & 0x000000000000FF00UL) != 0 && ((oneAhead << 8) & empty) != 0)
-                        moveTargets |= oneAhead << 8;
+
+                    // Double push from rank 2 (0x000000000000FF00)
+                    if ((fromBB & 0x000000000000FF00UL) != 0)
+                    {
+                        ulong twoAhead = fromBB << 16;
+                        if ((twoAhead & empty) != 0)
+                            moveTargets |= twoAhead;
+                    }
                 }
 
-                // Captures
+                // Captures (only if not wrapping)
                 if ((fromBB & Board.FileA) == 0)
                     moveTargets |= (fromBB << 9) & opp;
                 if ((fromBB & Board.FileH) == 0)
                     moveTargets |= (fromBB << 7) & opp;
+
+                // En Passant
+                if (game.enPassantSquare != -1)
+                {
+                    int fileFrom = square % 8;
+                    int rankFrom = square / 8;
+
+                    if (rankFrom == 4) // 5th rank
+                    {
+                        if (fileFrom > 0 && square + 7 == game.enPassantSquare)
+                            moveTargets |= 1UL << game.enPassantSquare;
+                        if (fileFrom < 7 && square + 9 == game.enPassantSquare)
+                            moveTargets |= 1UL << game.enPassantSquare;
+                    }
+                }
+
             }
             else
             {
+                // Black pawn movement
                 ulong oneAhead = fromBB >> 8;
                 if ((oneAhead & empty) != 0)
                 {
                     moveTargets |= oneAhead;
-                    if ((fromBB & 0x00FF000000000000UL) != 0 && ((oneAhead >> 8) & empty) != 0)
-                        moveTargets |= oneAhead >> 8;
+
+                    // Double push from rank 7 (0x00FF000000000000)
+                    if ((fromBB & 0x00FF000000000000UL) != 0)
+                    {
+                        ulong twoAhead = fromBB >> 16;
+                        if ((twoAhead & empty) != 0)
+                            moveTargets |= twoAhead;
+                    }
                 }
 
+                // Captures
                 if ((fromBB & Board.FileA) == 0)
                     moveTargets |= (fromBB >> 7) & opp;
                 if ((fromBB & Board.FileH) == 0)
                     moveTargets |= (fromBB >> 9) & opp;
+
+               if (game.enPassantSquare != -1)
+                {
+                    int fileFrom = square % 8;
+                    int rankFrom = square / 8;
+
+                    if (rankFrom == 3) // 4th rank
+                    {
+                        if (fileFrom > 0 && square - 9 == game.enPassantSquare)
+                            moveTargets |= 1UL << game.enPassantSquare;
+                        if (fileFrom < 7 && square - 7 == game.enPassantSquare)
+                            moveTargets |= 1UL << game.enPassantSquare;
+                    }
+                }
+
             }
 
             if (moveTargets != 0)
@@ -58,6 +104,7 @@ public static class MoveGen
 
         return result;
     }
+
 
     public static Dictionary<int, ulong> KnightMoves(Board board, PieceColor color)
     {
@@ -74,8 +121,10 @@ public static class MoveGen
         return result;
     }
 
-    public static Dictionary<int, ulong> KingMoves(Board board, PieceColor color)
+    public static Dictionary<int, ulong> KingMoves(GameState game, PieceColor color)
     {
+        Board board = game.board;
+
         Dictionary<int, ulong> result = new Dictionary<int, ulong>();
 
         ulong bitboard = color == PieceColor.White ? board.WhiteKing : board.BlackKing;
@@ -88,6 +137,50 @@ public static class MoveGen
 
             result[square] = KingLookUpTable[square] & ~ownPieces;
         }
+
+        // Castling
+
+        if (color == PieceColor.White)
+        {
+            // KingSide
+            if (game.whiteCanShortCastle &&
+                (board.WhiteKing & (1UL << 4)) != 0 && // King on e1
+                (board.WhiteRooks & (1UL << 7)) != 0 && // Rook on h1
+                (board.AllPieces & ((1UL << 5) | (1UL << 6))) == 0) // Squares f1, g1 empty
+            {
+                result[4] |= 1UL << 6; // King moves to g1
+            }
+
+            // Queen side
+            if (game.whiteCanLongCastle &&
+                (board.WhiteKing & (1UL << 4)) != 0 && // King on e1
+                (board.WhiteRooks & (1UL << 0)) != 0 && // Rook on a1
+                (board.AllPieces & ((1UL << 1) | (1UL << 2) | (1UL << 3))) == 0) // Squares b1, c1, d1 empty
+            {
+                result[4] |= 1UL << 2; // King moves to c1
+            }
+        }
+        else
+        {
+            // KingSide
+            if (game.blackCanShortCastle &&
+                (board.BlackKing & (1UL << 60)) != 0 && // King on e8
+                (board.BlackRooks & (1UL << 63)) != 0 && // Rook on h8
+                (board.AllPieces & ((1UL << 61) | (1UL << 62))) == 0)  // Squares f8, g8 empty
+            {
+                result[60] |= 1UL << 62; // King moves to g8
+            }
+
+            // QueenSide
+            if (game.blackCanLongCastle &&
+                (board.BlackKing & (1UL << 60)) != 0 && // King on e8
+                (board.BlackRooks & (1UL << 56)) != 0 && // Rook on a8
+                (board.AllPieces & ((1UL << 57) | (1UL << 58) | (1UL << 59))) == 0) // Squares b8, c8, d8 empty
+            {
+                result[60] |= 1UL << 58; // King moves to c8
+            }
+        }
+
 
         return result;
     }

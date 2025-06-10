@@ -24,6 +24,7 @@ public struct Move
         rawMove |= (ushort)(BitBoardUtils.GetBinaryFromPromotionType(promotionType) << 12);
     }
 
+    // Using 16 bit integers like this can speed up search and save memory (probably). And bit operations are VERY cheap.
 }
 
 public struct MoveInfo

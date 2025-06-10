@@ -160,4 +160,38 @@ public static class BoardUtils
                 throw new ArgumentException("Invalid piece type");
         }
     }
+
+    public static void ParseFen(GameState gameState, string fen)
+    {
+        // starting fen: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+        string[] parts = fen.Split(' ');
+        if (parts.Length < 5)
+            throw new ArgumentException("Invalid FEN: Not enough parts.");
+
+        string activeColor = parts[1];
+        string castlingRights = parts[2];
+        string enPassantSquare = parts[3];
+        string halfMoveClock = parts[4];
+
+        gameState.whiteCanShortCastle = castlingRights.Contains('K');
+        gameState.whiteCanLongCastle = castlingRights.Contains('Q');
+        gameState.blackCanShortCastle = castlingRights.Contains('k');
+        gameState.blackCanLongCastle = castlingRights.Contains('q');
+
+        gameState.halfMoveClock = int.TryParse(halfMoveClock, out var clock) ? clock : 0;
+        
+        gameState.plyNum = activeColor == "w" ? 0 : 1;
+        gameState.enPassantSquare = ParseEnPassant(enPassantSquare);
+    }
+
+    static int ParseEnPassant(string ep)
+    {
+        if (ep == "-")
+            return -1;
+
+        int file = ep[0] - 'a';
+        int rank = ep[1] - '1';
+
+        return rank * 8 + file;
+    }
 }

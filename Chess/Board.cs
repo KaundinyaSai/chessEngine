@@ -39,8 +39,9 @@ public class Board
     public const ulong FileH = 0x8080808080808080UL;
     public const ulong FileB = 0x0202020202020202UL;
     public const ulong FileG = 0x4040404040404040UL;
+                                    
 
-    public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+    public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     {
         // Clear bitboards
         WhitePawns = WhiteKnights = WhiteBishops = WhiteRooks = WhiteQueens = WhiteKing = 0;
@@ -93,10 +94,12 @@ public class Board
 
     }
 
-    public void MakeMove(Move move)
+    public void MakeMove(Move move, int enPassantSquare, out MoveInfo moveInfo, out Piece pieceToMove)
     {
-        Piece pieceToMove = BoardUtils.GetPieceAt(this, move.fromIndex);
+        pieceToMove = BoardUtils.GetPieceAt(this, move.fromIndex);
         Piece? capturedPiece = null;
+
+        moveInfo = new MoveInfo();
         if (BitBoardUtils.IsSquareOccupied(AllPieces, move.toIndex))
         {
             capturedPiece = BoardUtils.GetPieceAt(this, move.toIndex);
@@ -106,13 +109,82 @@ public class Board
         bitboard = BitBoardUtils.ClearBit(bitboard, move.fromIndex);
         bitboard = BitBoardUtils.SetBit(bitboard, move.toIndex);
 
-        if (capturedPiece == null)
+        if (capturedPiece != null)
         {
-            return;
+            ref ulong capturedPieceBitboard = ref BoardUtils.GetBitboardFromPiece(this, capturedPiece.Value);
+            capturedPieceBitboard = BitBoardUtils.ClearBit(capturedPieceBitboard, move.toIndex);
+
+            moveInfo.capturedPiece = capturedPiece;
+        }
+        else
+        {
+            moveInfo.capturedPiece = null;
         }
 
-        ref ulong capturedPieceBitboard = ref BoardUtils.GetBitboardFromPiece(this, capturedPiece.Value);
-        capturedPieceBitboard = BitBoardUtils.ClearBit(capturedPieceBitboard, move.toIndex);
+        // Extra logic for castling
+        if (pieceToMove.type == PieceType.King)
+        {
+            if (move.fromIndex == 4 && move.toIndex == 6 && pieceToMove.color == PieceColor.White)
+            {
+                // White king-side castling: move rook from h1 (7) to f1 (5)
+                WhiteRooks = BitBoardUtils.ClearBit(WhiteRooks, 7);
+                WhiteRooks = BitBoardUtils.SetBit(WhiteRooks, 5);
+
+                moveInfo.shortCastle = true;
+            }
+            else if (move.fromIndex == 4 && move.toIndex == 2 && pieceToMove.color == PieceColor.White)
+            {
+                // White queen-side castling: move rook from a1 (0) to d1 (3)
+                WhiteRooks = BitBoardUtils.ClearBit(WhiteRooks, 0);
+                WhiteRooks = BitBoardUtils.SetBit(WhiteRooks, 3);
+
+                moveInfo.longCastle = true;
+            }
+            else if (move.fromIndex == 60 && move.toIndex == 62 && pieceToMove.color == PieceColor.Black)
+            {
+                // Black king-side castling: move rook from h8 (63) to f8 (61)
+                BlackRooks = BitBoardUtils.ClearBit(BlackRooks, 63);
+                BlackRooks = BitBoardUtils.SetBit(BlackRooks, 61);
+
+                moveInfo.shortCastle = true;
+            }
+            else if (move.fromIndex == 60 && move.toIndex == 58 && pieceToMove.color == PieceColor.Black)
+            {
+                // Black queen-side castling: move rook from a8 (56) to d8 (59)
+                BlackRooks = BitBoardUtils.ClearBit(BlackRooks, 56);
+                BlackRooks = BitBoardUtils.SetBit(BlackRooks, 59);
+
+                moveInfo.longCastle = true;
+            }
+        }
+
+        // Extra logic for en passant
+        // Check if move was a diagonal pawn move with no piece at target square
+        if (pieceToMove.type == PieceType.Pawn && MathF.Abs(move.toIndex - move.fromIndex) is 9 or 7)
+        {
+            // Only allow en passant if the move is to the en passant square
+            if (move.toIndex == enPassantSquare)
+            {
+                int enPassantOffset = pieceToMove.color == PieceColor.White ? -8 : 8;
+                int capturedPawnIndex = move.toIndex + enPassantOffset;
+                Piece pieceToEnPassant = BoardUtils.GetPieceAt(this, capturedPawnIndex);
+
+                if (pieceToEnPassant.type != PieceType.Pawn)
+                    throw new Exception("Can't en passant anything other than a pawn");
+
+                if (pieceToEnPassant.color == pieceToMove.color)
+                    throw new Exception("Not enemy piece, can't en passant");
+
+                // Remove the captured pawn from the correct bitboard
+                if (pieceToMove.color == PieceColor.White)
+                    BlackPawns = BitBoardUtils.ClearBit(BlackPawns, capturedPawnIndex);
+                else
+                    WhitePawns = BitBoardUtils.ClearBit(WhitePawns, capturedPawnIndex);
+
+                moveInfo.enPassant = true;
+                moveInfo.capturedPiece = pieceToEnPassant;
+            }
+}
     }
 }
 
