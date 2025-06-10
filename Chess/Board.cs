@@ -184,7 +184,26 @@ public class Board
                 moveInfo.enPassant = true;
                 moveInfo.capturedPiece = pieceToEnPassant;
             }
-}
+        }
+
+        // Extra logic for promotion
+        int lastRank = pieceToMove.color == PieceColor.White ? 7 : 0;
+        if (pieceToMove.type == PieceType.Pawn && move.toIndex / 8 == lastRank)
+        {
+            // Pawn has reached the last rank
+            if (move.promotion == 0b0000)
+            {
+                throw new Exception("Upon reaching the last rank, a pawn must promote");
+            }
+
+            // Remove pawn from the promotion square
+            bitboard = BitBoardUtils.ClearBit(bitboard, move.toIndex);
+
+            // Add promoted piece to the correct bitboard
+            Piece promotionPiece = new Piece(BoardUtils.getPromotionType(move.promotion), pieceToMove.color);
+            ref ulong promotionBitboard = ref BoardUtils.GetBitboardFromPiece(this, promotionPiece);
+            promotionBitboard = BitBoardUtils.SetBit(promotionBitboard, move.toIndex);
+        }
     }
 }
 

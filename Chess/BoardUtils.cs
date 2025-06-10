@@ -179,7 +179,7 @@ public static class BoardUtils
         gameState.blackCanLongCastle = castlingRights.Contains('q');
 
         gameState.halfMoveClock = int.TryParse(halfMoveClock, out var clock) ? clock : 0;
-        
+
         gameState.plyNum = activeColor == "w" ? 0 : 1;
         gameState.enPassantSquare = ParseEnPassant(enPassantSquare);
     }
@@ -193,5 +193,17 @@ public static class BoardUtils
         int rank = ep[1] - '1';
 
         return rank * 8 + file;
+    }
+
+    public static PieceType getPromotionType(int promotionType)
+    {
+        switch (promotionType)
+        {
+            case 0b0001: return PieceType.Knight;
+            case 0b0010: return PieceType.Bishop;
+            case 0b0100: return PieceType.Rook;
+            case 0b1000: return PieceType.Queen;
+            default: throw new ArgumentException($"Invalid promotion: {promotionType}");
+        }
     }
 }

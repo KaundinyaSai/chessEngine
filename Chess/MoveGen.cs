@@ -5,141 +5,144 @@ public static class MoveGen
     static ulong[] KnightLookUpTable = BoardUtils.KnightLookUpInit();
     static ulong[] KingLookUpTable = BoardUtils.KingLookUpInit();
 
-    public static Dictionary<int, ulong> PawnMoves(GameState game, PieceColor color)
+    public static List<Move> PawnMoves(GameState game, PieceColor color)
     {
         Board board = game.board;
-
-        Dictionary<int, ulong> result = new Dictionary<int, ulong>();
+        var moves = new List<Move>();
         ulong pawns = color == PieceColor.White ? board.WhitePawns : board.BlackPawns;
         ulong empty = board.EmptySquares;
         ulong opp = color == PieceColor.White ? board.BlackPieces : board.WhitePieces;
+        int forward = color == PieceColor.White ? 8 : -8;
+        int startRank = color == PieceColor.White ? 1 : 6;
+        int promotionRank = color == PieceColor.White ? 7 : 0;
+        int enPassantRank = color == PieceColor.White ? 4 : 3;
 
         while (pawns != 0)
         {
             int square = BitBoardUtils.PopMS1B(ref pawns);
-            ulong fromBB = 1UL << square;
-            ulong moveTargets = 0;
+            int rank = square / 8;
+            int file = square % 8;
 
-            if (color == PieceColor.White)
+            // Forward move
+            int to = square + forward;
+            if (to >= 0 && to < 64 && ((empty & (1UL << to)) != 0))
             {
-                // Pushes
-                ulong oneAhead = fromBB << 8;
-                if ((oneAhead & empty) != 0)
+                if (rank == promotionRank)
                 {
-                    moveTargets |= oneAhead;
-
-                    // Double push from rank 2 (0x000000000000FF00)
-                    if ((fromBB & 0x000000000000FF00UL) != 0)
+                    // Promotions
+                    moves.Add(new Move(square, to, PieceType.Queen));
+                    moves.Add(new Move(square, to, PieceType.Rook));
+                    moves.Add(new Move(square, to, PieceType.Bishop));
+                    moves.Add(new Move(square, to, PieceType.Knight));
+                }
+                else
+                {
+                    moves.Add(new Move(square, to));
+                    // Double push
+                    if (rank == startRank)
                     {
-                        ulong twoAhead = fromBB << 16;
-                        if ((twoAhead & empty) != 0)
-                            moveTargets |= twoAhead;
+                        int to2 = square + 2 * forward;
+                        int mid = square + forward;
+                        if ((empty & (1UL << to2)) != 0 && (empty & (1UL << mid)) != 0)
+                            moves.Add(new Move(square, to2));
                     }
                 }
-
-                // Captures (only if not wrapping)
-                if ((fromBB & Board.FileA) == 0)
-                    moveTargets |= (fromBB << 9) & opp;
-                if ((fromBB & Board.FileH) == 0)
-                    moveTargets |= (fromBB << 7) & opp;
-
-                // En Passant
-                if (game.enPassantSquare != -1)
-                {
-                    int fileFrom = square % 8;
-                    int rankFrom = square / 8;
-
-                    if (rankFrom == 4) // 5th rank
-                    {
-                        if (fileFrom > 0 && square + 7 == game.enPassantSquare)
-                            moveTargets |= 1UL << game.enPassantSquare;
-                        if (fileFrom < 7 && square + 9 == game.enPassantSquare)
-                            moveTargets |= 1UL << game.enPassantSquare;
-                    }
-                }
-
-            }
-            else
-            {
-                // Black pawn movement
-                ulong oneAhead = fromBB >> 8;
-                if ((oneAhead & empty) != 0)
-                {
-                    moveTargets |= oneAhead;
-
-                    // Double push from rank 7 (0x00FF000000000000)
-                    if ((fromBB & 0x00FF000000000000UL) != 0)
-                    {
-                        ulong twoAhead = fromBB >> 16;
-                        if ((twoAhead & empty) != 0)
-                            moveTargets |= twoAhead;
-                    }
-                }
-
-                // Captures
-                if ((fromBB & Board.FileA) == 0)
-                    moveTargets |= (fromBB >> 7) & opp;
-                if ((fromBB & Board.FileH) == 0)
-                    moveTargets |= (fromBB >> 9) & opp;
-
-               if (game.enPassantSquare != -1)
-                {
-                    int fileFrom = square % 8;
-                    int rankFrom = square / 8;
-
-                    if (rankFrom == 3) // 4th rank
-                    {
-                        if (fileFrom > 0 && square - 9 == game.enPassantSquare)
-                            moveTargets |= 1UL << game.enPassantSquare;
-                        if (fileFrom < 7 && square - 7 == game.enPassantSquare)
-                            moveTargets |= 1UL << game.enPassantSquare;
-                    }
-                }
-
             }
 
-            if (moveTargets != 0)
-                result[square] = moveTargets;
+            // Captures
+            foreach (int df in new int[] { -1, 1 })
+            {
+                int captureFile = file + df;
+                if (captureFile < 0 || captureFile > 7) continue;
+                int captureTo = square + forward + df;
+                if (captureTo < 0 || captureTo >= 64) continue;
+                if ((opp & (1UL << captureTo)) != 0)
+                {
+                    if (rank == promotionRank)
+                    {
+                        moves.Add(new Move(square, captureTo, PieceType.Queen));
+                        moves.Add(new Move(square, captureTo, PieceType.Rook));
+                        moves.Add(new Move(square, captureTo, PieceType.Bishop));
+                        moves.Add(new Move(square, captureTo, PieceType.Knight));
+                    }
+                    else
+                    {
+                        moves.Add(new Move(square, captureTo));
+                    }
+                }
+            }
+
+            // En Passant
+            if (game.enPassantSquare != -1 && rank == enPassantRank)
+            {
+                foreach (int df in new int[] { -1, 1 })
+                {
+                    int epFile = file + df;
+                    if (epFile < 0 || epFile > 7) continue;
+                    int epTo = square + forward + df;
+                    if (epTo == game.enPassantSquare)
+                    {
+                        int epPawnSquare = square + df;
+                        ulong epPawnMask = 1UL << epPawnSquare;
+                        if ((opp & epPawnMask) != 0) // Make sure there's an opposing pawn to capture
+                        {
+                            moves.Add(new Move(square, epTo));
+                        }
+                    }
+                }
+            }
+
         }
-
-        return result;
+        return moves;
     }
 
-
-    public static Dictionary<int, ulong> KnightMoves(Board board, PieceColor color)
+    public static List<Move> KnightMoves(Board board, PieceColor color)
     {
-        Dictionary<int, ulong> result = new Dictionary<int, ulong>();
+        List<Move> moves = new List<Move>();
         ulong knights = color == PieceColor.White ? board.WhiteKnights : board.BlackKnights;
         ulong ownPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
 
         while (knights != 0)
         {
             int square = BitBoardUtils.PopMS1B(ref knights);
-            result[square] = KnightLookUpTable[square] & ~ownPieces;
+            ulong attacks = KnightLookUpTable[square]; 
+            while (attacks != 0)
+            {
+                int squareToAdd = BitBoardUtils.PopMS1B(ref attacks);
+                if (((1UL << squareToAdd) & ownPieces) == 0)
+                {
+                    moves.Add(new Move(square, squareToAdd));
+                }
+            }
         }
 
-        return result;
+        return moves;
     }
 
-    public static Dictionary<int, ulong> KingMoves(GameState game, PieceColor color)
+    public static List<Move> KingMoves(GameState game, PieceColor color)
     {
         Board board = game.board;
 
-        Dictionary<int, ulong> result = new Dictionary<int, ulong>();
+        List<Move> moves = new List<Move>();
 
         ulong bitboard = color == PieceColor.White ? board.WhiteKing : board.BlackKing;
         ulong ownPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
 
         while (bitboard != 0)
         {
-            int square = BitOperations.TrailingZeroCount(bitboard);
-            bitboard = BitBoardUtils.ClearBit(bitboard, square);
+            int square = BitBoardUtils.PopMS1B(ref bitboard);
+            ulong attacks = KingLookUpTable[square];
 
-            result[square] = KingLookUpTable[square] & ~ownPieces;
+            while (attacks != 0)
+            {
+                int squareToAdd = BitBoardUtils.PopMS1B(ref attacks);
+                if (((1UL << squareToAdd) & ownPieces) == 0)
+                {
+                    moves.Add(new Move(square, squareToAdd));
+                }
+            }
         }
-
-        // Castling
-
+        
         if (color == PieceColor.White)
         {
             // KingSide
@@ -148,7 +151,7 @@ public static class MoveGen
                 (board.WhiteRooks & (1UL << 7)) != 0 && // Rook on h1
                 (board.AllPieces & ((1UL << 5) | (1UL << 6))) == 0) // Squares f1, g1 empty
             {
-                result[4] |= 1UL << 6; // King moves to g1
+                moves.Add(new Move(4, 6)); // King moves to g1
             }
 
             // Queen side
@@ -157,7 +160,7 @@ public static class MoveGen
                 (board.WhiteRooks & (1UL << 0)) != 0 && // Rook on a1
                 (board.AllPieces & ((1UL << 1) | (1UL << 2) | (1UL << 3))) == 0) // Squares b1, c1, d1 empty
             {
-                result[4] |= 1UL << 2; // King moves to c1
+                moves.Add(new Move(4, 2)); // King moves to c1
             }
         }
         else
@@ -168,7 +171,7 @@ public static class MoveGen
                 (board.BlackRooks & (1UL << 63)) != 0 && // Rook on h8
                 (board.AllPieces & ((1UL << 61) | (1UL << 62))) == 0)  // Squares f8, g8 empty
             {
-                result[60] |= 1UL << 62; // King moves to g8
+                moves.Add(new Move(60, 62)); // King moves to g8
             }
 
             // QueenSide
@@ -177,17 +180,18 @@ public static class MoveGen
                 (board.BlackRooks & (1UL << 56)) != 0 && // Rook on a8
                 (board.AllPieces & ((1UL << 57) | (1UL << 58) | (1UL << 59))) == 0) // Squares b8, c8, d8 empty
             {
-                result[60] |= 1UL << 58; // King moves to c8
+                moves.Add(new Move(60, 58)); // King moves to c8
             }
         }
 
 
-        return result;
+        return moves;
     }
 
-    public static Dictionary<int, ulong> SlidingMoves(Board board, PieceColor color, PieceType type)
+
+    public static List<Move> SlidingMoves(Board board, PieceColor color, PieceType type)
     {
-        Dictionary<int, ulong> result = new Dictionary<int, ulong>();
+        List<Move> moves = new List<Move>();
 
         ulong bitboard;
 
@@ -227,12 +231,10 @@ public static class MoveGen
         while (bitboard != 0)
         {
             int square = BitBoardUtils.PopMS1B(ref bitboard);
-            ulong moves = 0UL;
 
             foreach (int dir in directions)
             {
                 int next = square;
-
                 while (true)
                 {
                     if (IsWrapAround(dir, next))
@@ -245,17 +247,14 @@ public static class MoveGen
 
                     if ((bit & ownPieces) != 0) break;
 
-                    moves |= bit;
+                    moves.Add(new Move(square, next));
 
                     if ((bit & opponentPieces) != 0) break;
                 }
             }
-
-
-            result[square] = moves;
         }
 
-        return result;
+        return moves;
     }
 
     private static bool IsWrapAround(int dir, int fromSquare)
