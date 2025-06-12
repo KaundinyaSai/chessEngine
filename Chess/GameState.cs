@@ -45,4 +45,15 @@ public class GameState
 
         plyNum++;
     }
+
+    public void UnmakeLastMove()
+    {
+        if (moves.Count <= 0)
+        {
+            throw new Exception("No moves to unmake");
+        }
+
+        MoveInfo moveToUnmake = moves.Pop();
+        board.UnmakeMove(moveToUnmake);
+    }
 }

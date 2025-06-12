@@ -1,4 +1,6 @@
 
+using System.Drawing;
+
 public class Board
 {
     // So the position will be stored in bitboards. Basically 64 bit unsigned integers, where if a bit is set to 0 the square at
@@ -39,7 +41,7 @@ public class Board
     public const ulong FileH = 0x8080808080808080UL;
     public const ulong FileB = 0x0202020202020202UL;
     public const ulong FileG = 0x4040404040404040UL;
-                                    
+
 
     public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     {
@@ -100,6 +102,7 @@ public class Board
         Piece? capturedPiece = null;
 
         moveInfo = new MoveInfo();
+        moveInfo.move = move;
         if (BitBoardUtils.IsSquareOccupied(AllPieces, move.toIndex))
         {
             capturedPiece = BoardUtils.GetPieceAt(this, move.toIndex);
@@ -203,6 +206,70 @@ public class Board
             Piece promotionPiece = new Piece(BoardUtils.getPromotionType(move.promotion), pieceToMove.color);
             ref ulong promotionBitboard = ref BoardUtils.GetBitboardFromPiece(this, promotionPiece);
             promotionBitboard = BitBoardUtils.SetBit(promotionBitboard, move.toIndex);
+            moveInfo.promotionType = promotionPiece.type;
+        }
+    }
+
+    public void UnmakeMove(MoveInfo moveInfoToUndo)
+    {
+        int from = moveInfoToUndo.move.fromIndex;
+        int to = moveInfoToUndo.move.toIndex;
+
+        if (!BitBoardUtils.IsSquareOccupied(AllPieces, to))
+        {
+            throw new Exception("No piece found to reverse");
+        }
+
+        Piece thisPiece = BoardUtils.GetPieceAt(this, to);
+        ref ulong thisPieceBB = ref BoardUtils.GetBitboardFromPiece(this, thisPiece);
+
+        thisPieceBB = BitBoardUtils.ClearBit(thisPieceBB, to);
+        thisPieceBB = BitBoardUtils.SetBit(thisPieceBB, from);
+
+        if (moveInfoToUndo.capturedPiece != null)
+        {
+            ref ulong enemyBB = ref BoardUtils.GetBitboardFromPiece(this, moveInfoToUndo.capturedPiece.Value);
+            if (moveInfoToUndo.enPassant)
+            {
+                int enPassantOffset = thisPiece.color == PieceColor.White ? -8 : 8;
+                enemyBB = BitBoardUtils.SetBit(enemyBB, to + enPassantOffset);
+            }
+            else
+            {
+                enemyBB = BitBoardUtils.SetBit(enemyBB, to);
+            }
+        }
+
+        // Logic for castling
+        if (moveInfoToUndo.shortCastle)
+        {
+            int rookIndex = thisPiece.color == PieceColor.White ? 5 : 61;
+            Piece rook = BoardUtils.GetPieceAt(this, rookIndex);
+
+            int originalIndex = thisPiece.color == PieceColor.White ? 7 : 63;
+            ref ulong rookBB = ref thisPiece.color == PieceColor.White ? ref WhiteRooks : ref BlackRooks;
+            rookBB = BitBoardUtils.ClearBit(rookBB, rookIndex);
+            rookBB = BitBoardUtils.SetBit(rookBB, originalIndex);
+        }
+        if (moveInfoToUndo.longCastle)
+        {
+            int rookIndex = thisPiece.color == PieceColor.White ? 3 : 59;
+            Piece rook = BoardUtils.GetPieceAt(this, rookIndex);
+
+            int originalIndex = thisPiece.color == PieceColor.White ? 0 : 56;
+            ref ulong rookBB = ref thisPiece.color == PieceColor.White ? ref WhiteRooks : ref BlackRooks;
+            rookBB = BitBoardUtils.ClearBit(rookBB, rookIndex);
+            rookBB = BitBoardUtils.SetBit(rookBB, originalIndex);
+        }
+
+        // Logic for promotion
+        if (moveInfoToUndo.promotionType != null)
+        {
+            thisPieceBB = BitBoardUtils.ClearBit(thisPieceBB, to);
+            thisPieceBB = BitBoardUtils.ClearBit(thisPieceBB, from);
+
+            ref ulong pawnBB = ref thisPiece.color == PieceColor.White ? ref WhitePawns : ref BlackPawns;
+            pawnBB = BitBoardUtils.SetBit(pawnBB, from);
         }
     }
 }
