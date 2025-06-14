@@ -2,10 +2,55 @@
 using System.Numerics;
 public static class MoveGen
 {
-    static ulong[] KnightLookUpTable = BoardUtils.KnightLookUpInit();
-    static ulong[] KingLookUpTable = BoardUtils.KingLookUpInit();
+    static readonly ulong[] KnightLookUpTable = BoardUtils.KnightLookUpInit();
+    static readonly ulong[] KingLookUpTable = BoardUtils.KingLookUpInit();
+    public static readonly ulong[] WhitePawnAttackTable = BoardUtils.PawnAttacksInit(PieceColor.White);
+    public static readonly ulong[] BlackPawnAttackTable = BoardUtils.PawnAttacksInit(PieceColor.Black);
 
-    public static List<Move> PawnMoves(GameState game, PieceColor color)
+    public static List<Move> MovesForPiece(GameState game, Piece piece, bool forAttackMap)
+    {
+        switch (piece.type)
+        {
+            case PieceType.Pawn:
+                return PawnMoves(game, piece.color, forAttackMap);
+            case PieceType.Knight:
+                return KnightMoves(game.board, piece.color, forAttackMap);
+            case PieceType.Bishop:
+                return SlidingMoves(game.board, piece.color, PieceType.Bishop, forAttackMap);
+            case PieceType.Rook:
+                return SlidingMoves(game.board, piece.color, PieceType.Rook, forAttackMap);
+            case PieceType.Queen:
+                return SlidingMoves(game.board, piece.color, PieceType.Queen, forAttackMap);
+            case PieceType.King:
+                return KingMoves(game, piece.color, forAttackMap);
+            default:
+                return new List<Move>();
+        }
+    }
+
+    public static ulong GetAttackBitboardFromListMove(GameState game, List<Move> moves)
+    {
+        ulong bb = 0;
+
+        foreach (Move move in moves)
+        {
+            if (BoardUtils.GetPieceAt(game.board, move.fromIndex).type == PieceType.Pawn)
+            {
+                if (BoardUtils.GetPieceAt(game.board, move.fromIndex).color == PieceColor.White)
+                    bb |= WhitePawnAttackTable[move.fromIndex] & ~game.board.WhitePieces;
+                else
+                    bb |= BlackPawnAttackTable[move.fromIndex] & ~game.board.BlackPieces;
+            }
+            else
+            {
+                bb |= 1UL << move.toIndex;
+            }
+        }
+
+        return bb;
+    }
+
+    public static List<Move> PawnMoves(GameState game, PieceColor color, bool forAttackMap)
     {
         Board board = game.board;
         var moves = new List<Move>();
@@ -96,7 +141,7 @@ public static class MoveGen
         return moves;
     }
 
-    public static List<Move> KnightMoves(Board board, PieceColor color)
+    public static List<Move> KnightMoves(Board board, PieceColor color, bool forAttackMap)
     {
         List<Move> moves = new List<Move>();
         ulong knights = color == PieceColor.White ? board.WhiteKnights : board.BlackKnights;
@@ -109,7 +154,8 @@ public static class MoveGen
             while (attacks != 0)
             {
                 int squareToAdd = BitBoardUtils.PopMS1B(ref attacks);
-                if (((1UL << squareToAdd) & ownPieces) == 0)
+                bool shouldAdd = forAttackMap ? true : ((1UL << squareToAdd) & ownPieces) == 0;
+                if (shouldAdd)
                 {
                     moves.Add(new Move(square, squareToAdd));
                 }
@@ -119,7 +165,7 @@ public static class MoveGen
         return moves;
     }
 
-    public static List<Move> KingMoves(GameState game, PieceColor color)
+    public static List<Move> KingMoves(GameState game, PieceColor color, bool forAttackMap)
     {
         Board board = game.board;
 
@@ -132,11 +178,11 @@ public static class MoveGen
         {
             int square = BitBoardUtils.PopMS1B(ref bitboard);
             ulong attacks = KingLookUpTable[square];
-
             while (attacks != 0)
             {
                 int squareToAdd = BitBoardUtils.PopMS1B(ref attacks);
-                if (((1UL << squareToAdd) & ownPieces) == 0)
+                bool shouldAdd = forAttackMap ? true : ((1UL << square) & ownPieces) == 0;
+                if (shouldAdd)
                 {
                     moves.Add(new Move(square, squareToAdd));
                 }
@@ -189,7 +235,7 @@ public static class MoveGen
     }
 
 
-    public static List<Move> SlidingMoves(Board board, PieceColor color, PieceType type)
+    public static List<Move> SlidingMoves(Board board, PieceColor color, PieceType type, bool forAttackMap)
     {
         List<Move> moves = new List<Move>();
 
@@ -245,11 +291,17 @@ public static class MoveGen
 
                     ulong bit = 1UL << next;
 
-                    if ((bit & ownPieces) != 0) break;
-
-                    moves.Add(new Move(square, next));
-
-                    if ((bit & opponentPieces) != 0) break;
+                    if (forAttackMap)
+                    {
+                        moves.Add(new Move(square, next)); // Always add
+                        if ((bit & board.AllPieces) != 0) break; // Stop at any piece
+                    }
+                    else
+                    {
+                        if ((bit & ownPieces) != 0) break; // Stop at friendly
+                        moves.Add(new Move(square, next));
+                        if ((bit & opponentPieces) != 0) break; // Stop after capture
+                    }
                 }
             }
         }

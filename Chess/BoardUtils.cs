@@ -107,6 +107,31 @@ public static class BoardUtils
         return KingLookUpTable;
     }
 
+    public static ulong[] PawnAttacksInit(PieceColor color)
+    {
+        ulong[] result = new ulong[64];
+        for (int i = 0; i < 64; i++)
+        {
+            ulong moves = 0UL;
+            ulong from = 1UL << i;
+
+            if (color == PieceColor.White)
+            {
+                if ((from & Board.FileA) == 0) moves |= from << 7;
+                if ((from & Board.FileH) == 0) moves |= from << 9;
+                result[i] = moves;
+            }
+            else
+            {
+                if ((from & Board.FileH) == 0) moves |= from >> 7;
+                if ((from & Board.FileA) == 0) moves |= from >> 9;
+                result[i] = moves;
+            }
+        }
+
+        return result;
+    }
+
     public static Piece GetPieceAt(Board board, int squareIndex)
     {
         ulong mask = 1UL << squareIndex;
@@ -156,6 +181,27 @@ public static class BoardUtils
                 return ref piece.color == PieceColor.White ? ref board.WhiteQueens : ref board.BlackQueens;
             case PieceType.King:
                 return ref piece.color == PieceColor.White ? ref board.WhiteKing : ref board.BlackKing;
+            default:
+                throw new ArgumentException("Invalid piece type");
+        }
+    }
+
+    public static ref ulong GetAttackBitboardFromPiece(Board board, Piece piece)
+    {
+        switch (piece.type)
+        {
+            case PieceType.Pawn:
+                return ref piece.color == PieceColor.White ? ref board.WhitePawnAttacks : ref board.BlackPawnAttacks;
+            case PieceType.Knight:
+                return ref piece.color == PieceColor.White ? ref board.WhiteKnightAttacks : ref board.BlackKnightAttacks;
+            case PieceType.Bishop:
+                return ref piece.color == PieceColor.White ? ref board.WhiteBishopAttacks : ref board.BlackBishopAttacks;
+            case PieceType.Rook:
+                return ref piece.color == PieceColor.White ? ref board.WhiteRookAttacks : ref board.BlackRookAttacks;
+            case PieceType.Queen:
+                return ref piece.color == PieceColor.White ? ref board.WhiteQueenAttacks : ref board.BlackQueenAttacks;
+            case PieceType.King:
+                return ref piece.color == PieceColor.White ? ref board.WhiteKingAttacks : ref board.BlackKingAttacks;
             default:
                 throw new ArgumentException("Invalid piece type");
         }

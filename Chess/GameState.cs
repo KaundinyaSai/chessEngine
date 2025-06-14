@@ -17,10 +17,14 @@ public class GameState
 
     public bool isWhiteTurn => plyNum % 2 == 0;
 
+    public bool IsWhiteKingInCheck => (board.WhiteKing & board.BlackAttacks) != 0;
+    public bool IsBlackKingInCheck => (board.BlackKing & board.WhiteAttacks) != 0;
+
     public GameState(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     {
         board = new Board(fen);
         board.PopulateFromFen(fen);
+        SetAllAttackTables();
 
         moves = new Stack<MoveInfo>();
 
@@ -44,6 +48,7 @@ public class GameState
         }
 
         plyNum++;
+        SetAllAttackTables();
     }
 
     public void UnmakeLastMove()
@@ -55,5 +60,43 @@ public class GameState
 
         MoveInfo moveToUnmake = moves.Pop();
         board.UnmakeMove(moveToUnmake);
+        SetAllAttackTables();
     }
+
+    public void SetAttackTables(Piece piece)
+    {
+        ref ulong bb = ref BoardUtils.GetAttackBitboardFromPiece(board, piece);
+        bb = 0;
+
+        if (piece.type == PieceType.Pawn)
+        {
+            ulong pawns = piece.color == PieceColor.White ? board.WhitePawns : board.BlackPawns;
+            var pawnAttackTable = piece.color == PieceColor.White
+                ? MoveGen.WhitePawnAttackTable
+                : MoveGen.BlackPawnAttackTable;
+
+            while (pawns != 0)
+            {
+                int sq = BitBoardUtils.PopMS1B(ref pawns);
+                bb |= pawnAttackTable[sq];
+            }
+        }
+        else
+        {
+            List<Move> moves = MoveGen.MovesForPiece(this, piece, true);
+            bb |= MoveGen.GetAttackBitboardFromListMove(this, moves);
+        }
+    }
+
+    public void SetAllAttackTables()
+    {
+        foreach (PieceColor color in Enum.GetValues(typeof(PieceColor)))
+        {
+            foreach (PieceType type in Enum.GetValues(typeof(PieceType)))
+            {
+                SetAttackTables(new Piece(type, color));
+            }
+        }
+    }
+
 }
