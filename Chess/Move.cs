@@ -25,6 +25,14 @@ public struct Move
     }
 
     // Using 16 bit integers like this can speed up search and save memory (probably). And bit operations are VERY cheap.
+
+    public override bool Equals(object? obj) =>
+        obj is Move m && m.rawMove == this.rawMove;
+
+    public override int GetHashCode() => rawMove.GetHashCode();
+
+    public static bool operator ==(Move a, Move b) => a.rawMove == b.rawMove;
+    public static bool operator !=(Move a, Move b) => a.rawMove != b.rawMove;
 }
 
 public struct MoveInfo

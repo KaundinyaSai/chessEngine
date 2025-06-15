@@ -33,6 +33,10 @@ public class GameState
 
     public void MakeMove(Move move)
     {
+        if (!IsMoveLegal(move))
+        {
+            throw new ArgumentException("Not legal move");
+        }
         board.MakeMove(move, enPassantSquare, out MoveInfo moveInfo, out Piece pieceToMove);
         moves.Push(moveInfo);
 
@@ -97,6 +101,25 @@ public class GameState
                 SetAttackTables(new Piece(type, color));
             }
         }
+    }
+
+    public bool IsMoveLegal(Move move)
+    {
+        Piece piece = BoardUtils.GetPieceAt(board, move.fromIndex);
+        List<Move> moves = BoardUtils.returnMovesWithFromIndex(MoveGen.MovesForPiece(this, piece, false), move.fromIndex);
+
+        if (!moves.Contains(move))
+            return false;
+
+        // Check if it leaves the king in check
+        board.MakeMove(move, enPassantSquare, out MoveInfo moveInfo, out piece);
+        SetAllAttackTables();
+
+        bool kingInCheck = piece.color == PieceColor.White ? IsWhiteKingInCheck : IsBlackKingInCheck;
+        board.UnmakeMove(moveInfo);
+        SetAllAttackTables();
+
+        return !kingInCheck;
     }
 
 }

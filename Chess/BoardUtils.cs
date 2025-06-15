@@ -252,4 +252,19 @@ public static class BoardUtils
             default: throw new ArgumentException($"Invalid promotion: {promotionType}");
         }
     }
+
+    public static List<Move> returnMovesWithFromIndex(List<Move> moves, int fromIndex)
+    {
+        List<Move> subset = new List<Move>();
+
+        foreach (Move move in moves)
+        {
+            if (move.fromIndex == fromIndex)
+            {
+                subset.Add(move);
+            }
+        }
+
+        return subset;
+    }
 }
