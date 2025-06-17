@@ -267,4 +267,84 @@ public static class BoardUtils
 
         return subset;
     }
+
+    public static bool IsSquareAttacked(Board board, int square, PieceColor attackerColor)
+    {
+        // 1. Pawn attacks
+        if ((attackerColor == PieceColor.White) && ((MoveGen.BlackPawnAttackTable[square] & board.WhitePawns) != 0)) return true;
+        if ((attackerColor == PieceColor.Black) && (MoveGen.WhitePawnAttackTable[square] & board.BlackPawns) != 0) return true;
+
+        // 2. Knight attacks
+        if ((MoveGen.KnightLookUpTable[square] & (attackerColor == PieceColor.White ? board.WhiteKnights : board.BlackKnights)) != 0) return true;
+
+        // 3. King attacks
+        if ((MoveGen.KingLookUpTable[square] & (attackerColor == PieceColor.White ? board.WhiteKing : board.BlackKing)) != 0) return true;
+
+        // 4. Sliding pieces
+        if (IsAttackedByRookOrQueen(board, square, attackerColor)) return true;
+        if (IsAttackedByBishopOrQueen(board, square, attackerColor)) return true;
+
+        return false;
+    }
+
+    public static bool IsAttackedByRookOrQueen(Board board, int square, PieceColor attackerColor)
+    {
+        // Generate all rook and queen moves for the attacker color (for attack map)
+        List<Move> rookMoves = MoveGen.SlidingMoves(board, attackerColor, PieceType.Rook, true);
+        List<Move> queenMoves = MoveGen.SlidingMoves(board, attackerColor, PieceType.Queen, true);
+
+        foreach (var move in rookMoves)
+            if (move.toIndex == square)
+                return true;
+
+        foreach (var move in queenMoves)
+            if (move.toIndex == square)
+                return true;
+
+        return false;
+    }
+
+    public static bool IsAttackedByBishopOrQueen(Board board, int square, PieceColor attackerColor)
+    {
+        // Generate all bishop and queen moves for the attacker color (for attack map)
+        List<Move> bishopMoves = MoveGen.SlidingMoves(board, attackerColor, PieceType.Bishop, true);
+        List<Move> queenMoves = MoveGen.SlidingMoves(board, attackerColor, PieceType.Queen, true);
+
+        foreach (var move in bishopMoves)
+            if (move.toIndex == square)
+                return true;
+
+        foreach (var move in queenMoves)
+            if (move.toIndex == square)
+                return true;
+
+        return false;
+    }
+
+    public static string ConvertToAlg(Move move)
+    {
+        // eg: Move(12, 28) = e2e4
+        string fromFile = ((char)('a' + (move.fromIndex % 8))).ToString();
+        string fromRank = ((move.fromIndex / 8) + 1).ToString();
+        string toFile = ((char)('a' + (move.toIndex % 8))).ToString();
+        string toRank = ((move.toIndex / 8) + 1).ToString();
+
+        string alg = $"{fromFile}{fromRank}{toFile}{toRank}";
+
+        if (move.promotion != 0)
+        {
+            char promoChar = getPromotionType(move.promotion) switch
+            {
+                PieceType.Queen => 'q',
+                PieceType.Rook => 'r',
+                PieceType.Bishop => 'b',
+                PieceType.Knight => 'n',
+                _ => '?'
+            };
+            alg += promoChar;
+        }
+
+        return alg;
+    }
+
 }

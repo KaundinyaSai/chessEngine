@@ -87,4 +87,10 @@ public static class BitBoardUtils
             default: throw new ArgumentException("Not valid promotion type");
         }
     }
+
+    public static int GetKingSquare(Board board, PieceColor color)
+    {
+        ulong KingBBcopy = color == PieceColor.White ? board.WhiteKing : board.BlackKing;
+        return PopMS1B(ref KingBBcopy);
+    }
 }

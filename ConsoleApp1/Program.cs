@@ -1,14 +1,16 @@
-﻿
+﻿using System;
+using System.Diagnostics;
 
-GameState game = new GameState("rnbqkbnr/pp2pppp/2p5/1B1p4/4P3/8/PPPP1PPP/RNBQK1NR w KQkq - 0 1");
+GameState game = new GameState();
 
-BoardUtils.PrintBoard(game.board);
+Stopwatch stopwatch = Stopwatch.StartNew();
+
+Search.PerftDivide(game, 1);
+
+stopwatch.Stop();
+Console.WriteLine($"Elapsed time: {stopwatch.Elapsed}");
 
 
-Console.WriteLine(game.IsMoveLegal(new Move(49, 41)));
-game.MakeMove(new Move(42, 34));
-
-BoardUtils.PrintBoard(game.board);
 
 
 

@@ -1,11 +1,24 @@
 
-using System.Numerics;
 public static class MoveGen
 {
-    static readonly ulong[] KnightLookUpTable = BoardUtils.KnightLookUpInit();
-    static readonly ulong[] KingLookUpTable = BoardUtils.KingLookUpInit();
+    public static readonly ulong[] KnightLookUpTable = BoardUtils.KnightLookUpInit();
+    public static readonly ulong[] KingLookUpTable = BoardUtils.KingLookUpInit();
     public static readonly ulong[] WhitePawnAttackTable = BoardUtils.PawnAttacksInit(PieceColor.White);
     public static readonly ulong[] BlackPawnAttackTable = BoardUtils.PawnAttacksInit(PieceColor.Black);
+
+    public static List<Move> AllPseudoLegalMoves(GameState game)
+    {
+        List<Move> moves = new List<Move>();
+        PieceColor colorToMove = game.sideToMove;
+
+        foreach (PieceType type in Enum.GetValues(typeof(PieceType)))
+        {
+            Piece piece = new Piece(type, colorToMove);
+            moves.AddRange(MovesForPiece(game, piece, false));
+        }
+
+        return moves;
+    }
 
     public static List<Move> MovesForPiece(GameState game, Piece piece, bool forAttackMap)
     {
@@ -55,6 +68,10 @@ public static class MoveGen
         Board board = game.board;
         var moves = new List<Move>();
         ulong pawns = color == PieceColor.White ? board.WhitePawns : board.BlackPawns;
+        if (pawns == 0)
+        {
+            return new List<Move>();
+        }
         ulong empty = board.EmptySquares;
         ulong opp = color == PieceColor.White ? board.BlackPieces : board.WhitePieces;
         int forward = color == PieceColor.White ? 8 : -8;
@@ -72,9 +89,9 @@ public static class MoveGen
             int to = square + forward;
             if (to >= 0 && to < 64 && ((empty & (1UL << to)) != 0))
             {
-                if (rank == promotionRank)
+                if (to / 8 == promotionRank)
                 {
-                    // Promotions
+                    // Only promotions allowed to last rank
                     moves.Add(new Move(square, to, PieceType.Queen));
                     moves.Add(new Move(square, to, PieceType.Rook));
                     moves.Add(new Move(square, to, PieceType.Bishop));
@@ -93,7 +110,6 @@ public static class MoveGen
                     }
                 }
             }
-
             // Captures
             foreach (int df in new int[] { -1, 1 })
             {
@@ -103,7 +119,7 @@ public static class MoveGen
                 if (captureTo < 0 || captureTo >= 64) continue;
                 if ((opp & (1UL << captureTo)) != 0)
                 {
-                    if (rank == promotionRank)
+                    if (captureTo / 8 == promotionRank)
                     {
                         moves.Add(new Move(square, captureTo, PieceType.Queen));
                         moves.Add(new Move(square, captureTo, PieceType.Rook));
@@ -125,7 +141,8 @@ public static class MoveGen
                     int epFile = file + df;
                     if (epFile < 0 || epFile > 7) continue;
                     int epTo = square + forward + df;
-                    if (epTo == game.enPassantSquare)
+                    // Prevent en passant to promotion rank
+                    if (epTo == game.enPassantSquare && (epTo / 8 != promotionRank))
                     {
                         int epPawnSquare = square + df;
                         ulong epPawnMask = 1UL << epPawnSquare;
@@ -145,6 +162,10 @@ public static class MoveGen
     {
         List<Move> moves = new List<Move>();
         ulong knights = color == PieceColor.White ? board.WhiteKnights : board.BlackKnights;
+        if (knights == 0)
+        {
+            return new List<Move>();
+        }
         ulong ownPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
 
         while (knights != 0)
@@ -172,6 +193,10 @@ public static class MoveGen
         List<Move> moves = new List<Move>();
 
         ulong bitboard = color == PieceColor.White ? board.WhiteKing : board.BlackKing;
+        if (bitboard == 0)
+        {
+            return new List<Move>();
+        }
         ulong ownPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
 
         while (bitboard != 0)
@@ -181,7 +206,7 @@ public static class MoveGen
             while (attacks != 0)
             {
                 int squareToAdd = BitBoardUtils.PopMS1B(ref attacks);
-                bool shouldAdd = forAttackMap ? true : ((1UL << square) & ownPieces) == 0;
+                bool shouldAdd = forAttackMap ? true : ((1UL << squareToAdd) & ownPieces) == 0;
                 if (shouldAdd)
                 {
                     moves.Add(new Move(square, squareToAdd));
@@ -195,7 +220,10 @@ public static class MoveGen
             if (game.whiteCanShortCastle &&
                 (board.WhiteKing & (1UL << 4)) != 0 && // King on e1
                 (board.WhiteRooks & (1UL << 7)) != 0 && // Rook on h1
-                (board.AllPieces & ((1UL << 5) | (1UL << 6))) == 0) // Squares f1, g1 empty
+                (board.AllPieces & ((1UL << 5) | (1UL << 6))) == 0 && // Squares f1, g1 empty
+                !BoardUtils.IsSquareAttacked(board, 4, PieceColor.Black) && // e1 not attacked
+                !BoardUtils.IsSquareAttacked(board, 5, PieceColor.Black) && // f1 not attacked
+                !BoardUtils.IsSquareAttacked(board, 6, PieceColor.Black))   // g1 not attacked
             {
                 moves.Add(new Move(4, 6)); // King moves to g1
             }
@@ -204,7 +232,10 @@ public static class MoveGen
             if (game.whiteCanLongCastle &&
                 (board.WhiteKing & (1UL << 4)) != 0 && // King on e1
                 (board.WhiteRooks & (1UL << 0)) != 0 && // Rook on a1
-                (board.AllPieces & ((1UL << 1) | (1UL << 2) | (1UL << 3))) == 0) // Squares b1, c1, d1 empty
+                (board.AllPieces & ((1UL << 1) | (1UL << 2) | (1UL << 3))) == 0 && // Squares b1, c1, d1 empty
+                !BoardUtils.IsSquareAttacked(board, 4, PieceColor.Black) && // e1 not attacked
+                !BoardUtils.IsSquareAttacked(board, 3, PieceColor.Black) && // d1 not attacked
+                !BoardUtils.IsSquareAttacked(board, 2, PieceColor.Black))   // c1 not attacked
             {
                 moves.Add(new Move(4, 2)); // King moves to c1
             }
@@ -215,7 +246,10 @@ public static class MoveGen
             if (game.blackCanShortCastle &&
                 (board.BlackKing & (1UL << 60)) != 0 && // King on e8
                 (board.BlackRooks & (1UL << 63)) != 0 && // Rook on h8
-                (board.AllPieces & ((1UL << 61) | (1UL << 62))) == 0)  // Squares f8, g8 empty
+                (board.AllPieces & ((1UL << 61) | (1UL << 62))) == 0 && // Squares f8, g8 empty
+                !BoardUtils.IsSquareAttacked(board, 60, PieceColor.White) && // e8 not attacked
+                !BoardUtils.IsSquareAttacked(board, 61, PieceColor.White) && // f8 not attacked
+                !BoardUtils.IsSquareAttacked(board, 62, PieceColor.White))   // g8 not attacked
             {
                 moves.Add(new Move(60, 62)); // King moves to g8
             }
@@ -224,13 +258,14 @@ public static class MoveGen
             if (game.blackCanLongCastle &&
                 (board.BlackKing & (1UL << 60)) != 0 && // King on e8
                 (board.BlackRooks & (1UL << 56)) != 0 && // Rook on a8
-                (board.AllPieces & ((1UL << 57) | (1UL << 58) | (1UL << 59))) == 0) // Squares b8, c8, d8 empty
+                (board.AllPieces & ((1UL << 57) | (1UL << 58) | (1UL << 59))) == 0 &&// Squares b8, c8, d8 empty
+                !BoardUtils.IsSquareAttacked(board, 60, PieceColor.White) && // e8 not attacked
+                !BoardUtils.IsSquareAttacked(board, 59, PieceColor.White) && // d8 not attacked
+                !BoardUtils.IsSquareAttacked(board, 58, PieceColor.White))   // c8 not attacked
             {
                 moves.Add(new Move(60, 58)); // King moves to c8
             }
         }
-
-
         return moves;
     }
 
@@ -253,6 +288,10 @@ public static class MoveGen
                 bitboard = color == PieceColor.White ? board.WhiteQueens : board.BlackQueens;
                 break;
             default: throw new ArgumentException("Not a sliding piece");
+        }
+        if (bitboard == 0)
+        {
+            return new List<Move>();
         }
 
         ulong ownPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;

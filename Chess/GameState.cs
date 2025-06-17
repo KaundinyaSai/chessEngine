@@ -15,7 +15,7 @@ public class GameState
 
     public int plyNum; // a ply is half of a move
 
-    public bool isWhiteTurn => plyNum % 2 == 0;
+    public PieceColor sideToMove => plyNum % 2 == 0 ? PieceColor.White : PieceColor.Black;
 
     public bool IsWhiteKingInCheck => (board.WhiteKing & board.BlackAttacks) != 0;
     public bool IsBlackKingInCheck => (board.BlackKing & board.WhiteAttacks) != 0;
@@ -38,18 +38,16 @@ public class GameState
             throw new ArgumentException("Not legal move");
         }
         board.MakeMove(move, enPassantSquare, out MoveInfo moveInfo, out Piece pieceToMove);
+        moveInfo.previousEnPassantSquare = enPassantSquare;
+        moveInfo.previousWhiteCanShortCastle = whiteCanShortCastle;
+        moveInfo.previousWhiteCanLongCastle = whiteCanLongCastle;
+        moveInfo.previousBlackCanShortCastle = blackCanShortCastle;
+        moveInfo.previousBlackCanLongCastle = blackCanLongCastle;
+
         moves.Push(moveInfo);
 
-        // Check if it was a double pawn push and update the en passant square accorginly
-        if (pieceToMove.type == PieceType.Pawn && MathF.Abs(move.toIndex - move.fromIndex) == 16)
-        {
-            int enPassantOffset = pieceToMove.color == PieceColor.White ? -16 : 16;
-            enPassantSquare = move.toIndex + enPassantOffset;
-        }
-        else
-        {
-            enPassantSquare = -1;
-        }
+        UpdateEnPassantSquare(pieceToMove, moveInfo);
+        UpdateCastlingRights(pieceToMove, moveInfo);
 
         plyNum++;
         SetAllAttackTables();
@@ -63,7 +61,17 @@ public class GameState
         }
 
         MoveInfo moveToUnmake = moves.Pop();
+        Piece pieceToMove = BoardUtils.GetPieceAt(board, moveToUnmake.move.toIndex);
         board.UnmakeMove(moveToUnmake);
+
+        plyNum--;
+        
+        enPassantSquare = moveToUnmake.previousEnPassantSquare;
+        whiteCanShortCastle = moveToUnmake.previousWhiteCanShortCastle;
+        whiteCanLongCastle = moveToUnmake.previousWhiteCanLongCastle;
+        blackCanShortCastle = moveToUnmake.previousBlackCanShortCastle;
+        blackCanLongCastle = moveToUnmake.previousBlackCanLongCastle;
+
         SetAllAttackTables();
     }
 
@@ -121,5 +129,99 @@ public class GameState
 
         return !kingInCheck;
     }
+
+    public List<Move> AllLegalMoves()
+    {
+        List<Move> legalMoves = new();
+        var pseudoMoves = MoveGen.AllPseudoLegalMoves(this);
+        
+        int whiteKingSquare = BitBoardUtils.GetKingSquare(board, PieceColor.White);
+        int blackKingSquare = BitBoardUtils.GetKingSquare(board, PieceColor.Black);
+
+        foreach (var move in pseudoMoves)
+        {
+            board.MakeMove(move, enPassantSquare, out var moveInfo, out var piece);
+            plyNum++;
+            int kingSquare = piece.type == PieceType.King ? move.toIndex :
+                            piece.color == PieceColor.White ? whiteKingSquare : blackKingSquare;
+
+            bool inCheck = BoardUtils.IsSquareAttacked(
+                board, kingSquare,
+                piece.color == PieceColor.White ? PieceColor.Black : PieceColor.White
+            );
+
+            board.UnmakeMove(moveInfo);
+            plyNum--;
+
+            if (!inCheck)
+                legalMoves.Add(move);
+        }
+
+        return legalMoves;
+    }
+
+
+    public void UpdateEnPassantSquare(Piece pieceToMove, MoveInfo moveInfo)
+    {
+        Move move = moveInfo.move;
+        // Check if it was a double pawn push and update the en passant square accorginly
+        if (pieceToMove.type == PieceType.Pawn && MathF.Abs(move.toIndex - move.fromIndex) == 16)
+        {
+            int enPassantOffset = pieceToMove.color == PieceColor.White ? -8 : 8;
+            enPassantSquare = move.toIndex + enPassantOffset;
+        }
+        else
+        {
+            enPassantSquare = -1;
+        }
+    }
+
+    public void UpdateCastlingRights(Piece pieceToMove, MoveInfo moveInfo)
+    {
+        Move move = moveInfo.move;
+        switch (pieceToMove.type)
+        {
+            case PieceType.King:
+                if (pieceToMove.color == PieceColor.White)
+                {
+                    whiteCanShortCastle = false;
+                    whiteCanLongCastle = false;
+                }
+                else
+                {
+                    blackCanShortCastle = false;
+                    blackCanLongCastle = false;
+                }
+                break;
+            case PieceType.Rook:
+                if (pieceToMove.color == PieceColor.White)
+                {
+                    if (move.fromIndex == 0) whiteCanLongCastle = false;
+                    if (move.fromIndex == 7) whiteCanShortCastle = false;
+                }
+                else
+                {
+                    if (move.fromIndex == 56) blackCanLongCastle = false;
+                    if (move.fromIndex == 63) blackCanShortCastle = false;
+                }
+                break;
+        }
+
+        // If a rook is captured, update castling rights
+        if (moveInfo.capturedPiece.HasValue && moveInfo.capturedPiece.Value.type == PieceType.Rook)
+        {
+            if (moveInfo.capturedPiece.Value.color == PieceColor.White)
+            {
+                if (move.toIndex == 0) whiteCanLongCastle = false;
+                if (move.toIndex == 7) whiteCanShortCastle = false;
+            }
+            else
+            {
+                if (move.toIndex == 56) blackCanLongCastle = false;
+                if (move.toIndex == 63) blackCanShortCastle = false;
+            }
+        }
+    }
+
 
 }

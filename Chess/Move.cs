@@ -43,4 +43,11 @@ public struct MoveInfo
     public bool longCastle;
     public bool enPassant;
     public PieceType? promotionType;
+
+    // previous states
+    public int previousEnPassantSquare;
+    public bool previousWhiteCanShortCastle;
+    public bool previousWhiteCanLongCastle;
+    public bool previousBlackCanShortCastle;
+    public bool previousBlackCanLongCastle;
 }
