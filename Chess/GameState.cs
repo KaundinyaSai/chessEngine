@@ -89,7 +89,7 @@ public class GameState
 
             while (pawns != 0)
             {
-                int sq = BitBoardUtils.PopMS1B(ref pawns);
+                int sq = BitBoardUtils.PopLS1B(ref pawns);
                 bb |= pawnAttackTable[sq];
             }
         }
@@ -147,18 +147,17 @@ public class GameState
     }
 
 
-    public List<Move> AllLegalMoves()
+    public int AllLegalMoves(Span<Move> legalMoves)
     {
-        Span<Move> pseudoMoves = stackalloc Move[256]; // large enough for full movegen
-        int moveCount = 0;
-        MoveGen.AllPseudoLegalMoves(this, pseudoMoves, ref moveCount);
+        Span<Move> pseudoMoves = stackalloc Move[256];
+        int pseudoCount = 0;
+        MoveGen.AllPseudoLegalMoves(this, pseudoMoves, ref pseudoCount);
 
-        List<Move> legalMoves = new(moveCount);
-
+        int legalCount = 0;
         int whiteKingSquare = BitBoardUtils.GetKingSquare(board, PieceColor.White);
         int blackKingSquare = BitBoardUtils.GetKingSquare(board, PieceColor.Black);
 
-        for (int i = 0; i < moveCount; i++)
+        for (int i = 0; i < pseudoCount; i++)
         {
             Move move = pseudoMoves[i];
             board.MakeMove(move, enPassantSquare, out var moveInfo, out var piece);
@@ -178,11 +177,12 @@ public class GameState
             plyNum--;
 
             if (!inCheck)
-                legalMoves.Add(move);
+                legalMoves[legalCount++] = move;
         }
 
-        return legalMoves;
+        return legalCount;
     }
+
 
 
 

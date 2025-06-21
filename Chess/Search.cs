@@ -13,10 +13,14 @@ public static class Search
     {
         int totalNodes = 0;
         PerftStats totalStats = new PerftStats();
-        List<Move> moves = game.AllLegalMoves();
 
-        foreach (Move move in moves)
+        Span<Move> moves = stackalloc Move[256];
+        int moveCount = game.AllLegalMoves(moves);
+
+        for (int i = 0; i < moveCount; i++)
         {
+            Move move = moves[i];
+
             game.board.MakeMove(move, game.enPassantSquare, out MoveInfo moveInfo, out Piece movedPiece);
 
             moveInfo.previousEnPassantSquare = game.enPassantSquare;
@@ -59,8 +63,6 @@ public static class Search
     }
 
 
-
-
     public static void Perft(GameState game, int depth, ref PerftStats stats)
     {
         if (depth == 0)
@@ -69,10 +71,13 @@ public static class Search
             return;
         }
 
-        List<Move> moves = game.AllLegalMoves();
+        Span<Move> moves = stackalloc Move[256];
+        int moveCount = game.AllLegalMoves(moves);
 
-        foreach (Move move in moves)
+        for (int i = 0; i < moveCount; i++)
         {
+            Move move = moves[i];
+
             game.board.MakeMove(move, game.enPassantSquare, out MoveInfo moveInfo, out Piece movedPiece);
 
             moveInfo.previousEnPassantSquare = game.enPassantSquare;
@@ -86,7 +91,6 @@ public static class Search
             game.UpdateCastlingRights(movedPiece, moveInfo);
             game.SetAllAttackTables();
 
-            // Update stats if depth == 1 (only count the first move in this path)
             if (depth == 1)
             {
                 stats.nodes++;
@@ -114,6 +118,7 @@ public static class Search
             game.SetAllAttackTables();
         }
     }
+
 
 
 }

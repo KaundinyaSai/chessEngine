@@ -134,35 +134,7 @@ public static class BoardUtils
 
     public static Piece GetPieceAt(Board board, int squareIndex)
     {
-        ulong mask = 1UL << squareIndex;
-
-        if ((board.WhitePawns & mask) != 0)
-            return new Piece(PieceType.Pawn, PieceColor.White);
-        if ((board.WhiteKnights & mask) != 0)
-            return new Piece(PieceType.Knight, PieceColor.White);
-        if ((board.WhiteBishops & mask) != 0)
-            return new Piece(PieceType.Bishop, PieceColor.White);
-        if ((board.WhiteRooks & mask) != 0)
-            return new Piece(PieceType.Rook, PieceColor.White);
-        if ((board.WhiteQueens & mask) != 0)
-            return new Piece(PieceType.Queen, PieceColor.White);
-        if ((board.WhiteKing & mask) != 0)
-            return new Piece(PieceType.King, PieceColor.White);
-
-        if ((board.BlackPawns & mask) != 0)
-            return new Piece(PieceType.Pawn, PieceColor.Black);
-        if ((board.BlackKnights & mask) != 0)
-            return new Piece(PieceType.Knight, PieceColor.Black);
-        if ((board.BlackBishops & mask) != 0)
-            return new Piece(PieceType.Bishop, PieceColor.Black);
-        if ((board.BlackRooks & mask) != 0)
-            return new Piece(PieceType.Rook, PieceColor.Black);
-        if ((board.BlackQueens & mask) != 0)
-            return new Piece(PieceType.Queen, PieceColor.Black);
-        if ((board.BlackKing & mask) != 0)
-            return new Piece(PieceType.King, PieceColor.Black);
-
-        throw new Exception($"No piece found at index {squareIndex}");
+        return board.Pieces[squareIndex] ?? throw new Exception($"No piece at {squareIndex}");
     }
 
     public static ref ulong GetBitboardFromPiece(Board board, Piece piece)
@@ -253,21 +225,6 @@ public static class BoardUtils
         }
     }
 
-    public static List<Move> returnMovesWithFromIndex(List<Move> moves, int fromIndex)
-    {
-        List<Move> subset = new List<Move>();
-
-        foreach (Move move in moves)
-        {
-            if (move.fromIndex == fromIndex)
-            {
-                subset.Add(move);
-            }
-        }
-
-        return subset;
-    }
-
     public static bool IsSquareAttacked(Board board, int square, PieceColor attackerColor)
     {
         // 1. Pawn attacks
@@ -281,48 +238,26 @@ public static class BoardUtils
         if ((MoveGen.KingLookUpTable[square] & (attackerColor == PieceColor.White ? board.WhiteKing : board.BlackKing)) != 0) return true;
 
         // 4. Sliding pieces
-        if (IsAttackedByRookOrQueen(board, square, attackerColor)) return true;
-        if (IsAttackedByBishopOrQueen(board, square, attackerColor)) return true;
+        if (IsAttackedBySlidingPieces(board, square, attackerColor)) return true;
 
         return false;
     }
 
-    public static bool IsAttackedByRookOrQueen(Board board, int square, PieceColor attackerColor)
+    public static bool IsAttackedBySlidingPieces(Board board, int square, PieceColor attackerColor)
     {
-        Span<Move> buffer = stackalloc Move[64]; // 64 is enough for rook or queen moves
+        Span<Move> buffer = stackalloc Move[64];
         int count = 0;
 
         MoveGen.RookMovesMagic(board, attackerColor, true, buffer, ref count);
-        MoveGen.QueenMovesMagic(board, attackerColor, true, buffer, ref count); // appends to same span
-
-        for (int i = 0; i < count; i++)
-        {
-            if (buffer[i].toIndex == square)
-                return true;
-        }
-
-        return false;
-    }
-
-
-    public static bool IsAttackedByBishopOrQueen(Board board, int square, PieceColor attackerColor)
-    {
-        Span<Move> buffer = stackalloc Move[64]; // 64 is plenty for both
-        int count = 0;
-
         MoveGen.BishopMovesMagic(board, attackerColor, true, buffer, ref count);
-        MoveGen.QueenMovesMagic(board, attackerColor, true, buffer, ref count); // appends
+        MoveGen.QueenMovesMagic(board, attackerColor, true, buffer, ref count);
 
         for (int i = 0; i < count; i++)
-        {
             if (buffer[i].toIndex == square)
                 return true;
-        }
 
         return false;
     }
-
-
     public static string ConvertToAlg(Move move)
     {
         // eg: Move(12, 28) = e2e4

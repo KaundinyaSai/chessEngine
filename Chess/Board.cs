@@ -71,6 +71,8 @@ public class Board
     public const ulong FileB = 0x0202020202020202UL;
     public const ulong FileG = 0x4040404040404040UL;
 
+    public Piece?[] Pieces = new Piece?[64];
+
 
     public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     {
@@ -103,21 +105,58 @@ public class Board
 
                     switch (piece)
                     {
-                        // OR it into the corresponding bitboard
-                        case 'P': WhitePawns |= mask; break;
-                        case 'N': WhiteKnights |= mask; break;
-                        case 'B': WhiteBishops |= mask; break;
-                        case 'R': WhiteRooks |= mask; break;
-                        case 'Q': WhiteQueens |= mask; break;
-                        case 'K': WhiteKing |= mask; break;
-                        case 'p': BlackPawns |= mask; break;
-                        case 'n': BlackKnights |= mask; break;
-                        case 'b': BlackBishops |= mask; break;
-                        case 'r': BlackRooks |= mask; break;
-                        case 'q': BlackQueens |= mask; break;
-                        case 'k': BlackKing |= mask; break;
-                        default: throw new ArgumentException("Invalid FEN character");
+                        case 'P':
+                            WhitePawns |= mask;
+                            Pieces[index] = new Piece(PieceType.Pawn, PieceColor.White);
+                            break;
+                        case 'N':
+                            WhiteKnights |= mask;
+                            Pieces[index] = new Piece(PieceType.Knight, PieceColor.White);
+                            break;
+                        case 'B':
+                            WhiteBishops |= mask;
+                            Pieces[index] = new Piece(PieceType.Bishop, PieceColor.White);
+                            break;
+                        case 'R':
+                            WhiteRooks |= mask;
+                            Pieces[index] = new Piece(PieceType.Rook, PieceColor.White);
+                            break;
+                        case 'Q':
+                            WhiteQueens |= mask;
+                            Pieces[index] = new Piece(PieceType.Queen, PieceColor.White);
+                            break;
+                        case 'K':
+                            WhiteKing |= mask;
+                            Pieces[index] = new Piece(PieceType.King, PieceColor.White);
+                            break;
+                        case 'p':
+                            BlackPawns |= mask;
+                            Pieces[index] = new Piece(PieceType.Pawn, PieceColor.Black);
+                            break;
+                        case 'n':
+                            BlackKnights |= mask;
+                            Pieces[index] = new Piece(PieceType.Knight, PieceColor.Black);
+                            break;
+                        case 'b':
+                            BlackBishops |= mask;
+                            Pieces[index] = new Piece(PieceType.Bishop, PieceColor.Black);
+                            break;
+                        case 'r':
+                            BlackRooks |= mask;
+                            Pieces[index] = new Piece(PieceType.Rook, PieceColor.Black);
+                            break;
+                        case 'q':
+                            BlackQueens |= mask;
+                            Pieces[index] = new Piece(PieceType.Queen, PieceColor.Black);
+                            break;
+                        case 'k':
+                            BlackKing |= mask;
+                            Pieces[index] = new Piece(PieceType.King, PieceColor.Black);
+                            break;
+                        default:
+                            throw new ArgumentException("Invalid FEN character");
                     }
+
                     file++;
                 }
             }
@@ -141,6 +180,9 @@ public class Board
         ref ulong bitboard = ref BoardUtils.GetBitboardFromPiece(this, pieceToMove);
         bitboard = BitBoardUtils.ClearBit(bitboard, move.fromIndex);
 
+        Pieces[move.fromIndex] = null;
+        Pieces[move.toIndex] = pieceToMove;
+
         // Promotion check
         bool isPromotion = pieceToMove.type == PieceType.Pawn &&
                         (move.toIndex / 8 == (pieceToMove.color == PieceColor.White ? 7 : 0));
@@ -158,6 +200,7 @@ public class Board
             Piece promotionPiece = new Piece(BoardUtils.getPromotionType(move.promotion), pieceToMove.color);
             ref ulong promotionBitboard = ref BoardUtils.GetBitboardFromPiece(this, promotionPiece);
             promotionBitboard = BitBoardUtils.SetBit(promotionBitboard, move.toIndex);
+            Pieces[move.toIndex] = promotionPiece;
 
             moveInfo.promotionType = promotionPiece.type;
         }
@@ -183,24 +226,36 @@ public class Board
         {
             if (move.fromIndex == 4 && move.toIndex == 6 && pieceToMove.color == PieceColor.White)
             {
+                Pieces[7] = null;
+                Pieces[5] = new Piece(PieceType.Rook, PieceColor.White);
+
                 WhiteRooks = BitBoardUtils.ClearBit(WhiteRooks, 7);
                 WhiteRooks = BitBoardUtils.SetBit(WhiteRooks, 5);
                 moveInfo.shortCastle = true;
             }
             else if (move.fromIndex == 4 && move.toIndex == 2 && pieceToMove.color == PieceColor.White)
             {
+                Pieces[0] = null;
+                Pieces[3] = new Piece(PieceType.Rook, PieceColor.White);
+
                 WhiteRooks = BitBoardUtils.ClearBit(WhiteRooks, 0);
                 WhiteRooks = BitBoardUtils.SetBit(WhiteRooks, 3);
                 moveInfo.longCastle = true;
             }
             else if (move.fromIndex == 60 && move.toIndex == 62 && pieceToMove.color == PieceColor.Black)
             {
+                Pieces[63] = null;
+                Pieces[61] = new Piece(PieceType.Rook, PieceColor.Black);
+
                 BlackRooks = BitBoardUtils.ClearBit(BlackRooks, 63);
                 BlackRooks = BitBoardUtils.SetBit(BlackRooks, 61);
                 moveInfo.shortCastle = true;
             }
             else if (move.fromIndex == 60 && move.toIndex == 58 && pieceToMove.color == PieceColor.Black)
             {
+                Pieces[56] = null;
+                Pieces[59] = new Piece(PieceType.Rook, PieceColor.Black);
+
                 BlackRooks = BitBoardUtils.ClearBit(BlackRooks, 56);
                 BlackRooks = BitBoardUtils.SetBit(BlackRooks, 59);
                 moveInfo.longCastle = true;
@@ -208,13 +263,16 @@ public class Board
         }
 
         // En passant
-        if (pieceToMove.type == PieceType.Pawn && MathF.Abs(move.toIndex - move.fromIndex) is 9 or 7)
+        int diff = move.toIndex - move.fromIndex;
+        if ((diff == 7 || diff == 9 || diff == -7 || diff == -9) && pieceToMove.type == PieceType.Pawn)
         {
             if (move.toIndex == enPassantSquare)
             {
                 int epOffset = pieceToMove.color == PieceColor.White ? -8 : 8;
                 int capturedPawnIndex = move.toIndex + epOffset;
                 Piece pieceToEnPassant = BoardUtils.GetPieceAt(this, capturedPawnIndex);
+
+                Pieces[capturedPawnIndex] = null;
 
                 if (pieceToEnPassant.type != PieceType.Pawn)
                     throw new Exception("Can't en passant anything other than a pawn");
@@ -249,9 +307,13 @@ public class Board
             ref ulong promoBB = ref BoardUtils.GetBitboardFromPiece(this, thisPiece);
             promoBB = BitBoardUtils.ClearBit(promoBB, to);
 
+            Pieces[to] = moveInfoToUndo.capturedPiece;
+
             // Restore pawn to 'from'
             ref ulong pawnBB = ref thisPiece.color == PieceColor.White ? ref WhitePawns : ref BlackPawns;
             pawnBB = BitBoardUtils.SetBit(pawnBB, from);
+
+            Pieces[from] = new Piece(PieceType.Pawn, thisPiece.color);
         }
         else
         {
@@ -262,8 +324,12 @@ public class Board
             thisPiece = BoardUtils.GetPieceAt(this, to);
             ref ulong thisPieceBB = ref BoardUtils.GetBitboardFromPiece(this, thisPiece);
 
+            Pieces[to] = moveInfoToUndo.capturedPiece;
+
             thisPieceBB = BitBoardUtils.ClearBit(thisPieceBB, to);
             thisPieceBB = BitBoardUtils.SetBit(thisPieceBB, from);
+
+            Pieces[from] = thisPiece;
         }
 
         // Restore captured piece
@@ -273,7 +339,9 @@ public class Board
             if (moveInfoToUndo.enPassant)
             {
                 int epOffset = thisPiece.color == PieceColor.White ? -8 : 8;
-                enemyBB = BitBoardUtils.SetBit(enemyBB, to + epOffset);
+                int epIndex = to + epOffset;
+                enemyBB = BitBoardUtils.SetBit(enemyBB, epIndex);
+                Pieces[epIndex] = moveInfoToUndo.capturedPiece;
             }
             else
             {
@@ -289,6 +357,8 @@ public class Board
             ref ulong rookBB = ref thisPiece.color == PieceColor.White ? ref WhiteRooks : ref BlackRooks;
             rookBB = BitBoardUtils.ClearBit(rookBB, rookIndex);
             rookBB = BitBoardUtils.SetBit(rookBB, originalIndex);
+
+            Pieces[originalIndex] = new Piece(PieceType.Rook, thisPiece.color);
         }
 
         if (moveInfoToUndo.longCastle)
@@ -298,6 +368,8 @@ public class Board
             ref ulong rookBB = ref thisPiece.color == PieceColor.White ? ref WhiteRooks : ref BlackRooks;
             rookBB = BitBoardUtils.ClearBit(rookBB, rookIndex);
             rookBB = BitBoardUtils.SetBit(rookBB, originalIndex);
+
+            Pieces[originalIndex] = new Piece(PieceType.Rook, thisPiece.color);
         }
     }
 

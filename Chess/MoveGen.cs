@@ -83,7 +83,7 @@ public static class MoveGen
 
         while (pawns != 0)
         {
-            int square = BitBoardUtils.PopMS1B(ref pawns);
+            int square = BitBoardUtils.PopLS1B(ref pawns);
             int rank = square / 8;
             int file = square % 8;
 
@@ -113,7 +113,7 @@ public static class MoveGen
             }
 
             // Captures
-            foreach (int df in new int[] { -1, 1 })
+            for (int df = -1; df <= 1; df += 2)
             {
                 int captureFile = file + df;
                 if (captureFile < 0 || captureFile > 7) continue;
@@ -139,7 +139,7 @@ public static class MoveGen
             // En Passant
             if (game.enPassantSquare != -1 && rank == enPassantRank)
             {
-                foreach (int df in new int[] { -1, 1 })
+                for (int df = -1; df <= 1; df += 2)
                 {
                     int epFile = file + df;
                     if (epFile < 0 || epFile > 7) continue;
@@ -170,11 +170,11 @@ public static class MoveGen
 
         while (knights != 0)
         {
-            int square = BitBoardUtils.PopMS1B(ref knights);
+            int square = BitBoardUtils.PopLS1B(ref knights);
             ulong attacks = KnightLookUpTable[square];
             while (attacks != 0)
             {
-                int squareToAdd = BitBoardUtils.PopMS1B(ref attacks);
+                int squareToAdd = BitBoardUtils.PopLS1B(ref attacks);
                 bool shouldAdd = forAttackMap || ((1UL << squareToAdd) & ownPieces) == 0;
                 if (shouldAdd)
                 {
@@ -195,11 +195,11 @@ public static class MoveGen
 
         while (bitboard != 0)
         {
-            int square = BitBoardUtils.PopMS1B(ref bitboard);
+            int square = BitBoardUtils.PopLS1B(ref bitboard);
             ulong attacks = KingLookUpTable[square];
             while (attacks != 0)
             {
-                int squareToAdd = BitBoardUtils.PopMS1B(ref attacks);
+                int squareToAdd = BitBoardUtils.PopLS1B(ref attacks);
                 bool shouldAdd = forAttackMap || ((1UL << squareToAdd) & ownPieces) == 0;
                 if (shouldAdd)
                 {
@@ -300,7 +300,7 @@ public static class MoveGen
 
         while (bitboard != 0)
         {
-            int square = BitBoardUtils.PopMS1B(ref bitboard);
+            int square = BitBoardUtils.PopLS1B(ref bitboard);
             ulong masked = occupancy & Magic.BishopMasks[square];
             int index = Magic.GetMagicIndex(masked, Magic.BISHOP_MAGICS[square], Magic.BishopShifts[square]);
             ulong attacks = Magic.BishopAttackTable[square][index];
@@ -308,7 +308,7 @@ public static class MoveGen
 
             while (legal != 0)
             {
-                int target = BitBoardUtils.PopMS1B(ref legal);
+                int target = BitBoardUtils.PopLS1B(ref legal);
                 moves[count++] = new Move(square, target);
             }
         }
@@ -325,7 +325,7 @@ public static class MoveGen
 
         while (bitboard != 0)
         {
-            int square = BitBoardUtils.PopMS1B(ref bitboard);
+            int square = BitBoardUtils.PopLS1B(ref bitboard);
             ulong masked = occupancy & Magic.RookMasks[square];
             int index = Magic.GetMagicIndex(masked, Magic.ROOK_MAGICS[square], Magic.RookShifts[square]);
             ulong attacks = Magic.RookAttackTable[square][index];
@@ -333,7 +333,7 @@ public static class MoveGen
 
             while (legal != 0)
             {
-                int target = BitBoardUtils.PopMS1B(ref legal);
+                int target = BitBoardUtils.PopLS1B(ref legal);
                 moves[count++] = new Move(square, target);
             }
         }
@@ -350,7 +350,7 @@ public static class MoveGen
 
         while (bitboard != 0)
         {
-            int square = BitBoardUtils.PopMS1B(ref bitboard);
+            int square = BitBoardUtils.PopLS1B(ref bitboard);
 
             ulong bMasked = occupancy & Magic.BishopMasks[square];
             int bIndex = Magic.GetMagicIndex(bMasked, Magic.BISHOP_MAGICS[square], Magic.BishopShifts[square]);
@@ -365,7 +365,7 @@ public static class MoveGen
 
             while (legal != 0)
             {
-                int target = BitBoardUtils.PopMS1B(ref legal);
+                int target = BitBoardUtils.PopLS1B(ref legal);
                 moves[count++] = new Move(square, target);
             }
         }

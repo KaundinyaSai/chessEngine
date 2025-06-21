@@ -23,7 +23,7 @@ public static class BitBoardUtils
         return bitboard & ~(1UL << squareIndex);
     }
 
-    public static int PopMS1B(ref ulong bitboard)
+    public static int PopLS1B(ref ulong bitboard)
     {
         int square = BitOperations.TrailingZeroCount(bitboard);
         bitboard = ClearBit(bitboard, square);
@@ -91,7 +91,7 @@ public static class BitBoardUtils
     public static int GetKingSquare(Board board, PieceColor color)
     {
         ulong KingBBcopy = color == PieceColor.White ? board.WhiteKing : board.BlackKing;
-        return PopMS1B(ref KingBBcopy);
+        return PopLS1B(ref KingBBcopy);
     }
 
     public static List<int> GetSetBits(ulong bb)
