@@ -289,37 +289,39 @@ public static class BoardUtils
 
     public static bool IsAttackedByRookOrQueen(Board board, int square, PieceColor attackerColor)
     {
-        // Generate all rook and queen moves for the attacker color (for attack map)
-        List<Move> rookMoves = MoveGen.SlidingMovesMagic(board, attackerColor, PieceType.Rook, true);
-        List<Move> queenMoves = MoveGen.SlidingMovesMagic(board, attackerColor, PieceType.Queen, true);
+        Span<Move> buffer = stackalloc Move[64]; // 64 is enough for rook or queen moves
+        int count = 0;
 
-        foreach (var move in rookMoves)
-            if (move.toIndex == square)
-                return true;
+        MoveGen.RookMovesMagic(board, attackerColor, true, buffer, ref count);
+        MoveGen.QueenMovesMagic(board, attackerColor, true, buffer, ref count); // appends to same span
 
-        foreach (var move in queenMoves)
-            if (move.toIndex == square)
+        for (int i = 0; i < count; i++)
+        {
+            if (buffer[i].toIndex == square)
                 return true;
+        }
 
         return false;
     }
+
 
     public static bool IsAttackedByBishopOrQueen(Board board, int square, PieceColor attackerColor)
     {
-        // Generate all bishop and queen moves for the attacker color (for attack map)
-        List<Move> bishopMoves = MoveGen.SlidingMovesMagic(board, attackerColor, PieceType.Bishop, true);
-        List<Move> queenMoves = MoveGen.SlidingMovesMagic(board, attackerColor, PieceType.Queen, true);
+        Span<Move> buffer = stackalloc Move[64]; // 64 is plenty for both
+        int count = 0;
 
-        foreach (var move in bishopMoves)
-            if (move.toIndex == square)
-                return true;
+        MoveGen.BishopMovesMagic(board, attackerColor, true, buffer, ref count);
+        MoveGen.QueenMovesMagic(board, attackerColor, true, buffer, ref count); // appends
 
-        foreach (var move in queenMoves)
-            if (move.toIndex == square)
+        for (int i = 0; i < count; i++)
+        {
+            if (buffer[i].toIndex == square)
                 return true;
+        }
 
         return false;
     }
+
 
     public static string ConvertToAlg(Move move)
     {

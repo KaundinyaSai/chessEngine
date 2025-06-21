@@ -1,5 +1,5 @@
 
-public static class MoveGen
+public static class Test
 {
     public static readonly ulong[] KnightLookUpTable = BoardUtils.KnightLookUpInit();
     public static readonly ulong[] KingLookUpTable = BoardUtils.KingLookUpInit();

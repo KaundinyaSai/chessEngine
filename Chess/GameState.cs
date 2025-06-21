@@ -95,8 +95,10 @@ public class GameState
         }
         else
         {
-            List<Move> moves = MoveGen.MovesForPiece(this, piece, true);
-            bb |= MoveGen.GetAttackBitboardFromListMove(this, moves);
+            Span<Move> buffer = stackalloc Move[256];
+            int count = 0;
+
+            MoveGen.MovesForPiece(this, piece, true, buffer, ref count);
         }
     }
 
@@ -114,9 +116,23 @@ public class GameState
     public bool IsMoveLegal(Move move)
     {
         Piece piece = BoardUtils.GetPieceAt(board, move.fromIndex);
-        List<Move> moves = BoardUtils.returnMovesWithFromIndex(MoveGen.MovesForPiece(this, piece, false), move.fromIndex);
 
-        if (!moves.Contains(move))
+        Span<Move> buffer = stackalloc Move[64]; // 64 is more than enough for a single piece
+        int count = 0;
+        MoveGen.MovesForPiece(this, piece, false, buffer, ref count);
+
+        // Check if the move is in the generated span
+        bool found = false;
+        for (int i = 0; i < count; i++)
+        {
+            if (buffer[i].Equals(move))
+            {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
             return false;
 
         // Check if it leaves the king in check
@@ -130,23 +146,31 @@ public class GameState
         return !kingInCheck;
     }
 
+
     public List<Move> AllLegalMoves()
     {
-        List<Move> legalMoves = new();
-        var pseudoMoves = MoveGen.AllPseudoLegalMoves(this);
-        
+        Span<Move> pseudoMoves = stackalloc Move[256]; // large enough for full movegen
+        int moveCount = 0;
+        MoveGen.AllPseudoLegalMoves(this, pseudoMoves, ref moveCount);
+
+        List<Move> legalMoves = new(moveCount);
+
         int whiteKingSquare = BitBoardUtils.GetKingSquare(board, PieceColor.White);
         int blackKingSquare = BitBoardUtils.GetKingSquare(board, PieceColor.Black);
 
-        foreach (var move in pseudoMoves)
+        for (int i = 0; i < moveCount; i++)
         {
+            Move move = pseudoMoves[i];
             board.MakeMove(move, enPassantSquare, out var moveInfo, out var piece);
             plyNum++;
-            int kingSquare = piece.type == PieceType.King ? move.toIndex :
-                            piece.color == PieceColor.White ? whiteKingSquare : blackKingSquare;
+
+            int kingSquare = piece.type == PieceType.King
+                ? move.toIndex
+                : (piece.color == PieceColor.White ? whiteKingSquare : blackKingSquare);
 
             bool inCheck = BoardUtils.IsSquareAttacked(
-                board, kingSquare,
+                board,
+                kingSquare,
                 piece.color == PieceColor.White ? PieceColor.Black : PieceColor.White
             );
 
@@ -159,6 +183,8 @@ public class GameState
 
         return legalMoves;
     }
+
+
 
 
     public void UpdateEnPassantSquare(Piece pieceToMove, MoveInfo moveInfo)

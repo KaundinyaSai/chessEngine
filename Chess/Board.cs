@@ -1,6 +1,4 @@
 
-using System.Drawing;
-
 public class Board
 {
     // So the position will be stored in bitboards. Basically 64 bit unsigned integers, where if a bit is set to 0 the square at
