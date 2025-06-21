@@ -290,8 +290,8 @@ public static class BoardUtils
     public static bool IsAttackedByRookOrQueen(Board board, int square, PieceColor attackerColor)
     {
         // Generate all rook and queen moves for the attacker color (for attack map)
-        List<Move> rookMoves = MoveGen.SlidingMoves(board, attackerColor, PieceType.Rook, true);
-        List<Move> queenMoves = MoveGen.SlidingMoves(board, attackerColor, PieceType.Queen, true);
+        List<Move> rookMoves = MoveGen.SlidingMovesMagic(board, attackerColor, PieceType.Rook, true);
+        List<Move> queenMoves = MoveGen.SlidingMovesMagic(board, attackerColor, PieceType.Queen, true);
 
         foreach (var move in rookMoves)
             if (move.toIndex == square)
@@ -307,8 +307,8 @@ public static class BoardUtils
     public static bool IsAttackedByBishopOrQueen(Board board, int square, PieceColor attackerColor)
     {
         // Generate all bishop and queen moves for the attacker color (for attack map)
-        List<Move> bishopMoves = MoveGen.SlidingMoves(board, attackerColor, PieceType.Bishop, true);
-        List<Move> queenMoves = MoveGen.SlidingMoves(board, attackerColor, PieceType.Queen, true);
+        List<Move> bishopMoves = MoveGen.SlidingMovesMagic(board, attackerColor, PieceType.Bishop, true);
+        List<Move> queenMoves = MoveGen.SlidingMovesMagic(board, attackerColor, PieceType.Queen, true);
 
         foreach (var move in bishopMoves)
             if (move.toIndex == square)

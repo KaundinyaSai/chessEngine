@@ -29,11 +29,11 @@ public static class MoveGen
             case PieceType.Knight:
                 return KnightMoves(game.board, piece.color, forAttackMap);
             case PieceType.Bishop:
-                return SlidingMoves(game.board, piece.color, PieceType.Bishop, forAttackMap);
+                return SlidingMovesMagic(game.board, piece.color, PieceType.Bishop, forAttackMap);
             case PieceType.Rook:
-                return SlidingMoves(game.board, piece.color, PieceType.Rook, forAttackMap);
+                return SlidingMovesMagic(game.board, piece.color, PieceType.Rook, forAttackMap);
             case PieceType.Queen:
-                return SlidingMoves(game.board, piece.color, PieceType.Queen, forAttackMap);
+                return SlidingMovesMagic(game.board, piece.color, PieceType.Queen, forAttackMap);
             case PieceType.King:
                 return KingMoves(game, piece.color, forAttackMap);
             default:
@@ -268,92 +268,92 @@ public static class MoveGen
         }
         return moves;
     }
-
-
-    public static List<Move> SlidingMoves(Board board, PieceColor color, PieceType type, bool forAttackMap)
+    
+    public static ulong SlidingAttack(int square, ulong blockers, bool isRook)
     {
-        List<Move> moves = new List<Move>();
+        ulong attacks = 0UL;
+        int[] directions = isRook
+            ? new int[] { 8, -8, 1, -1 }
+            : new int[] { 9, -9, 7, -7 };
 
-        ulong bitboard;
+        foreach (int dir in directions)
+        {
+            int next = square;
 
-        switch (type)
-        {
-            case PieceType.Bishop:
-                bitboard = color == PieceColor.White ? board.WhiteBishops : board.BlackBishops;
-                break;
-            case PieceType.Rook:
-                bitboard = color == PieceColor.White ? board.WhiteRooks : board.BlackRooks;
-                break;
-            case PieceType.Queen:
-                bitboard = color == PieceColor.White ? board.WhiteQueens : board.BlackQueens;
-                break;
-            default: throw new ArgumentException("Not a sliding piece");
+            while (true)
+            {
+                int from = next;
+                next += dir;
+
+                if (next < 0 || next >= 64 || IsWrapAround(dir, from))
+                    break;
+
+                ulong bit = 1UL << next;
+                attacks |= bit;
+
+                if ((blockers & bit) != 0)
+                    break;
+            }
         }
-        if (bitboard == 0)
+
+        return attacks;
+    }
+    
+    public static List<Move> SlidingMovesMagic(Board board, PieceColor color, PieceType type, bool forAttackMap)
+    {
+        List<Move> moves = new();
+
+        ulong bitboard = type switch
         {
-            return new List<Move>();
-        }
+            PieceType.Bishop => color == PieceColor.White ? board.WhiteBishops : board.BlackBishops,
+            PieceType.Rook => color == PieceColor.White ? board.WhiteRooks : board.BlackRooks,
+            PieceType.Queen => color == PieceColor.White ? board.WhiteQueens : board.BlackQueens,
+            _ => throw new ArgumentException("Not a sliding piece")
+        };
+
+        if (bitboard == 0) return moves;
 
         ulong ownPieces = color == PieceColor.White ? board.WhitePieces : board.BlackPieces;
-        ulong opponentPieces = color == PieceColor.White ? board.BlackPieces : board.WhitePieces;
-
-        int[] directions;
-
-        switch (type)
-        {
-            case PieceType.Bishop:
-                directions = [9, 7, -9, -7];
-                break;
-            case PieceType.Rook:
-                directions = [8, 1, -8, -1];
-                break;
-            case PieceType.Queen:
-                directions = [8, 1, -8, -1, 9, 7, -9, -7];
-                break;
-            default: throw new ArgumentException("Not a sliding piece");
-        }
 
         while (bitboard != 0)
         {
             int square = BitBoardUtils.PopMS1B(ref bitboard);
+            ulong attacks = 0;
 
-            foreach (int dir in directions)
+            if (type == PieceType.Bishop || type == PieceType.Queen)
             {
-                int next = square;
-                while (true)
-                {
-                    if (IsWrapAround(dir, next))
-                        break;
+                ulong blockers = board.AllPieces;
+                ulong masked = blockers & Magic.BishopMasks[square];
+                int index = Magic.GetMagicIndex(masked, Magic.BISHOP_MAGICS[square], Magic.BishopShifts[square]);
+                attacks |= Magic.BishopAttackTable[square][index];
+            }
 
-                    next += dir;
-                    if (next < 0 || next >= 64) break;
+            if (type == PieceType.Rook || type == PieceType.Queen)
+            {
+                ulong blockers = board.AllPieces;
+                ulong masked = blockers & Magic.RookMasks[square];
+                int index = Magic.GetMagicIndex(masked, Magic.ROOK_MAGICS[square], Magic.RookShifts[square]);
+                attacks |= Magic.RookAttackTable[square][index];
+            }
 
-                    ulong bit = 1UL << next;
-
-                    if (forAttackMap)
-                    {
-                        moves.Add(new Move(square, next)); // Always add
-                        if ((bit & board.AllPieces) != 0) break; // Stop at any piece
-                    }
-                    else
-                    {
-                        if ((bit & ownPieces) != 0) break; // Stop at friendly
-                        moves.Add(new Move(square, next));
-                        if ((bit & opponentPieces) != 0) break; // Stop after capture
-                    }
-                }
+            ulong legal = forAttackMap ? attacks : attacks & ~ownPieces;
+            while (legal != 0)
+            {
+                int target = BitBoardUtils.PopMS1B(ref legal);
+                moves.Add(new Move(square, target));
             }
         }
 
         return moves;
     }
 
-    private static bool IsWrapAround(int dir, int fromSquare)
+
+    public static bool IsWrapAround(int dir, int fromSquare)
     {
         ulong fromBB = 1UL << fromSquare;
         switch (dir)
         {
-            case 1:  return (fromBB & Board.FileH) != 0;
+            case 1: return (fromBB & Board.FileH) != 0;
             case -1: return (fromBB & Board.FileA) != 0;
             case 9:
             case -7: return (fromBB & Board.FileH) != 0;

@@ -93,4 +93,13 @@ public static class BitBoardUtils
         ulong KingBBcopy = color == PieceColor.White ? board.WhiteKing : board.BlackKing;
         return PopMS1B(ref KingBBcopy);
     }
+
+    public static List<int> GetSetBits(ulong bb)
+    {
+        List<int> indices = new();
+        for (int i = 0; i < 64; i++)
+            if (((bb >> i) & 1UL) != 0)
+                indices.Add(i);
+        return indices;
+    }
 }
