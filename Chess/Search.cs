@@ -89,7 +89,6 @@ public static class Search
             game.plyNum++;
             game.UpdateEnPassantSquare(movedPiece, moveInfo);
             game.UpdateCastlingRights(movedPiece, moveInfo);
-            game.SetAllAttackTables();
 
             if (depth == 1)
             {
@@ -115,7 +114,6 @@ public static class Search
             game.whiteCanLongCastle = moveInfo.previousWhiteCanLongCastle;
             game.blackCanShortCastle = moveInfo.previousBlackCanShortCastle;
             game.blackCanLongCastle = moveInfo.previousBlackCanLongCastle;
-            game.SetAllAttackTables();
         }
     }
 

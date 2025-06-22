@@ -1,4 +1,6 @@
 
+using System.Numerics;
+
 public class GameState
 {
     public Board board;
@@ -17,14 +19,13 @@ public class GameState
 
     public PieceColor sideToMove => plyNum % 2 == 0 ? PieceColor.White : PieceColor.Black;
 
-    public bool IsWhiteKingInCheck => (board.WhiteKing & board.BlackAttacks) != 0;
-    public bool IsBlackKingInCheck => (board.BlackKing & board.WhiteAttacks) != 0;
+    public bool IsWhiteKingInCheck => BoardUtils.IsSquareAttacked(board, BitOperations.TrailingZeroCount(board.WhiteKing), PieceColor.Black);
+    public bool IsBlackKingInCheck =>   BoardUtils.IsSquareAttacked(board, BitOperations.TrailingZeroCount(board.BlackKing), PieceColor.White);
 
     public GameState(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     {
         board = new Board(fen);
         board.PopulateFromFen(fen);
-        SetAllAttackTables();
 
         moves = new Stack<MoveInfo>();
 
@@ -50,7 +51,6 @@ public class GameState
         UpdateCastlingRights(pieceToMove, moveInfo);
 
         plyNum++;
-        SetAllAttackTables();
     }
 
     public void UnmakeLastMove()
@@ -71,8 +71,6 @@ public class GameState
         whiteCanLongCastle = moveToUnmake.previousWhiteCanLongCastle;
         blackCanShortCastle = moveToUnmake.previousBlackCanShortCastle;
         blackCanLongCastle = moveToUnmake.previousBlackCanLongCastle;
-
-        SetAllAttackTables();
     }
 
     public void SetAttackTables(Piece piece)
