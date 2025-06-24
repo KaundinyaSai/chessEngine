@@ -17,7 +17,6 @@ public static class MoveGen
         }
     }
 
-
     public static void MovesForPiece(GameState game, Piece piece, bool forAttackMap, Span<Move> moves, ref int count)
     {
         switch (piece.type)
@@ -43,31 +42,6 @@ public static class MoveGen
         }
     }
 
-
-    public static ulong GetAttackBitboardFromListMove(GameState game, List<Move> moves)
-    {
-        ulong bb = 0;
-        
-
-        foreach (Move move in moves)
-        {
-            Piece piece = BoardUtils.GetPieceAt(game.board, move.fromIndex);
-            if (piece.type == PieceType.Pawn)
-            {
-                if (piece.color == PieceColor.White)
-                    bb |= WhitePawnAttackTable[move.fromIndex] & ~game.board.WhitePieces;
-                else
-                    bb |= BlackPawnAttackTable[move.fromIndex] & ~game.board.BlackPieces;
-            }
-            else
-            {
-                bb |= 1UL << move.toIndex;
-            }
-        }
-
-        return bb;
-    }
-
     public static void PawnMoves(GameState game, PieceColor color, Span<Move> moves, ref int count)
     {
         Board board = game.board;
@@ -87,21 +61,17 @@ public static class MoveGen
             int rank = square / 8;
             int file = square % 8;
 
-            // Forward move
             int to = square + forward;
             if (to >= 0 && to < 64 && ((empty & (1UL << to)) != 0))
             {
                 if (to / 8 == promotionRank)
                 {
-                    moves[count++] = new Move(square, to, PieceType.Queen);
-                    moves[count++] = new Move(square, to, PieceType.Rook);
-                    moves[count++] = new Move(square, to, PieceType.Bishop);
-                    moves[count++] = new Move(square, to, PieceType.Knight);
+                    foreach (var promo in new[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
+                        moves[count++] = new Move(square, to, promo);
                 }
                 else
                 {
                     moves[count++] = new Move(square, to);
-                    // Double push
                     if (rank == startRank)
                     {
                         int to2 = square + 2 * forward;
@@ -112,22 +82,19 @@ public static class MoveGen
                 }
             }
 
-            // Captures
             for (int df = -1; df <= 1; df += 2)
             {
                 int captureFile = file + df;
-                if (captureFile < 0 || captureFile > 7) continue;
+                if ((uint)captureFile > 7) continue;
                 int captureTo = square + forward + df;
-                if (captureTo < 0 || captureTo >= 64) continue;
+                if ((uint)captureTo >= 64) continue;
 
                 if ((opp & (1UL << captureTo)) != 0)
                 {
                     if (captureTo / 8 == promotionRank)
                     {
-                        moves[count++] = new Move(square, captureTo, PieceType.Queen);
-                        moves[count++] = new Move(square, captureTo, PieceType.Rook);
-                        moves[count++] = new Move(square, captureTo, PieceType.Bishop);
-                        moves[count++] = new Move(square, captureTo, PieceType.Knight);
+                        foreach (var promo in new[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
+                            moves[count++] = new Move(square, captureTo, promo);
                     }
                     else
                     {
@@ -136,24 +103,19 @@ public static class MoveGen
                 }
             }
 
-            // En Passant
             if (game.enPassantSquare != -1 && rank == enPassantRank)
             {
                 for (int df = -1; df <= 1; df += 2)
                 {
                     int epFile = file + df;
-                    if (epFile < 0 || epFile > 7) continue;
+                    if ((uint)epFile > 7) continue;
                     int epTo = square + forward + df;
-
-                    // Prevent en passant to promotion rank
                     if (epTo == game.enPassantSquare && (epTo / 8 != promotionRank))
                     {
                         int epPawnSquare = square + df;
                         ulong epPawnMask = 1UL << epPawnSquare;
                         if ((opp & epPawnMask) != 0)
-                        {
                             moves[count++] = new Move(square, epTo);
-                        }
                     }
                 }
             }
@@ -210,9 +172,12 @@ public static class MoveGen
 
         if (forAttackMap) return;
 
+        var rights = game.castlingRights;
+
         if (color == PieceColor.White)
         {
-            if (game.whiteCanShortCastle &&
+            // White kingside (O-O)
+            if ((rights & CastlingRights.WhiteKingside) != 0 &&
                 (board.WhiteKing & (1UL << 4)) != 0 &&
                 (board.WhiteRooks & (1UL << 7)) != 0 &&
                 (board.AllPieces & ((1UL << 5) | (1UL << 6))) == 0 &&
@@ -223,7 +188,8 @@ public static class MoveGen
                 moves[count++] = new Move(4, 6); // O-O
             }
 
-            if (game.whiteCanLongCastle &&
+            // White queenside (O-O-O)
+            if ((rights & CastlingRights.WhiteQueenside) != 0 &&
                 (board.WhiteKing & (1UL << 4)) != 0 &&
                 (board.WhiteRooks & (1UL << 0)) != 0 &&
                 (board.AllPieces & ((1UL << 1) | (1UL << 2) | (1UL << 3))) == 0 &&
@@ -236,7 +202,8 @@ public static class MoveGen
         }
         else
         {
-            if (game.blackCanShortCastle &&
+            // Black kingside (O-O)
+            if ((rights & CastlingRights.BlackKingside) != 0 &&
                 (board.BlackKing & (1UL << 60)) != 0 &&
                 (board.BlackRooks & (1UL << 63)) != 0 &&
                 (board.AllPieces & ((1UL << 61) | (1UL << 62))) == 0 &&
@@ -247,7 +214,8 @@ public static class MoveGen
                 moves[count++] = new Move(60, 62); // O-O
             }
 
-            if (game.blackCanLongCastle &&
+            // Black queenside (O-O-O)
+            if ((rights & CastlingRights.BlackQueenside) != 0 &&
                 (board.BlackKing & (1UL << 60)) != 0 &&
                 (board.BlackRooks & (1UL << 56)) != 0 &&
                 (board.AllPieces & ((1UL << 57) | (1UL << 58) | (1UL << 59))) == 0 &&
@@ -259,6 +227,7 @@ public static class MoveGen
             }
         }
     }
+
 
     
     public static ulong SlidingAttack(int square, ulong blockers, bool isRook)

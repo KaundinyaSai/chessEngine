@@ -50,4 +50,6 @@ public struct MoveInfo
     public bool previousWhiteCanLongCastle;
     public bool previousBlackCanShortCastle;
     public bool previousBlackCanLongCastle;
+
+    public CastlingRights previousCastlingRights;
 }

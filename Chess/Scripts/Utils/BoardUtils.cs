@@ -1,4 +1,6 @@
 
+using System.Numerics;
+
 public static class BoardUtils
 {
     public static void PrintBitboard(ulong bitboard)
@@ -191,10 +193,15 @@ public static class BoardUtils
         string enPassantSquare = parts[3];
         string halfMoveClock = parts[4];
 
-        gameState.whiteCanShortCastle = castlingRights.Contains('K');
-        gameState.whiteCanLongCastle = castlingRights.Contains('Q');
-        gameState.blackCanShortCastle = castlingRights.Contains('k');
-        gameState.blackCanLongCastle = castlingRights.Contains('q');
+        CastlingRights rights = CastlingRights.None;
+
+        if (castlingRights.Contains('K')) rights |= CastlingRights.WhiteKingside;
+        if (castlingRights.Contains('Q')) rights |= CastlingRights.WhiteQueenside;
+        if (castlingRights.Contains('k')) rights |= CastlingRights.BlackKingside;
+        if (castlingRights.Contains('q')) rights |= CastlingRights.BlackQueenside;
+
+        gameState.castlingRights = rights;
+
 
         gameState.halfMoveClock = int.TryParse(halfMoveClock, out var clock) ? clock : 0;
 
@@ -282,6 +289,13 @@ public static class BoardUtils
         }
 
         return alg;
+    }
+
+    public static int GetKingSquare(Board board, PieceColor color)
+    {
+        ulong bb = color == PieceColor.White ? board.WhiteKing : board.BlackKing;
+
+        return BitOperations.TrailingZeroCount(bb);
     }
 
 }

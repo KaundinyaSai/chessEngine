@@ -15,44 +15,39 @@ public static class Search
         PerftStats totalStats = new PerftStats();
 
         Span<Move> moves = stackalloc Move[256];
-        int moveCount = game.AllLegalMoves(moves);
+        int moveCount = 0;
+        MoveGen.AllPseudoLegalMoves(game, moves, ref moveCount);
 
         for (int i = 0; i < moveCount; i++)
         {
             Move move = moves[i];
+            game.SimplerMakeMove(move, out MoveInfo moveInfo);
 
-            game.board.MakeMove(move, game.enPassantSquare, out MoveInfo moveInfo, out Piece movedPiece);
+            // Check king safety after move
+            int kingSquare = BitBoardUtils.GetKingSquare(
+                game.board,
+                game.sideToMove == PieceColor.White ? PieceColor.Black : PieceColor.White
+            );
+            bool inCheck = BoardUtils.IsSquareAttacked(game.board, kingSquare, game.sideToMove);
 
-            moveInfo.previousEnPassantSquare = game.enPassantSquare;
-            moveInfo.previousWhiteCanShortCastle = game.whiteCanShortCastle;
-            moveInfo.previousWhiteCanLongCastle = game.whiteCanLongCastle;
-            moveInfo.previousBlackCanShortCastle = game.blackCanShortCastle;
-            moveInfo.previousBlackCanLongCastle = game.blackCanLongCastle;
+            if (!inCheck)
+            {
+                PerftStats moveStats = new PerftStats();
+                Perft(game, depth - 1, ref moveStats);
 
-            game.plyNum++;
-            game.UpdateEnPassantSquare(movedPiece, moveInfo);
-            game.UpdateCastlingRights(movedPiece, moveInfo);
+                Console.WriteLine($"{BoardUtils.ConvertToAlg(move)}: {moveStats.nodes}");
 
-            PerftStats moveStats = new PerftStats();
-            Perft(game, depth - 1, ref moveStats);
+                // Accumulate totals
+                totalNodes += moveStats.nodes;
+                totalStats.nodes += moveStats.nodes;
+                totalStats.captures += moveStats.captures;
+                totalStats.enPassants += moveStats.enPassants;
+                totalStats.castles += moveStats.castles;
+                totalStats.promotions += moveStats.promotions;
+            }
 
-            Console.WriteLine($"{BoardUtils.ConvertToAlg(move)}: {moveStats.nodes}");
-
-            // Accumulate totals
-            totalNodes += moveStats.nodes;
-            totalStats.nodes += moveStats.nodes;
-            totalStats.captures += moveStats.captures;
-            totalStats.enPassants += moveStats.enPassants;
-            totalStats.castles += moveStats.castles;
-            totalStats.promotions += moveStats.promotions;
-
-            game.board.UnmakeMove(moveInfo);
-            game.plyNum--;
-            game.enPassantSquare = moveInfo.previousEnPassantSquare;
-            game.whiteCanShortCastle = moveInfo.previousWhiteCanShortCastle;
-            game.whiteCanLongCastle = moveInfo.previousWhiteCanLongCastle;
-            game.blackCanShortCastle = moveInfo.previousBlackCanShortCastle;
-            game.blackCanLongCastle = moveInfo.previousBlackCanLongCastle;
+            // Always unmake the move!
+            game.SimplerUnmakeMove(moveInfo);
         }
 
         Console.WriteLine($"\nNodes searched: {totalStats.nodes}");
@@ -63,7 +58,7 @@ public static class Search
     }
 
 
-    public static void Perft(GameState game, int depth, ref PerftStats stats)
+   public static void Perft(GameState game, int depth, ref PerftStats stats)
     {
         if (depth == 0)
         {
@@ -72,51 +67,103 @@ public static class Search
         }
 
         Span<Move> moves = stackalloc Move[256];
-        int moveCount = game.AllLegalMoves(moves);
+        int moveCount = 0;
+        MoveGen.AllPseudoLegalMoves(game, moves, ref moveCount);
 
         for (int i = 0; i < moveCount; i++)
         {
             Move move = moves[i];
+            game.SimplerMakeMove(move, out MoveInfo moveInfo);
 
-            game.board.MakeMove(move, game.enPassantSquare, out MoveInfo moveInfo, out Piece movedPiece);
+            // Check king safety after move
+            int kingSquare = BitBoardUtils.GetKingSquare(
+                game.board,
+                game.sideToMove == PieceColor.White ? PieceColor.Black : PieceColor.White
+            );
+            bool inCheck = BoardUtils.IsSquareAttacked(game.board, kingSquare, game.sideToMove);
 
-            moveInfo.previousEnPassantSquare = game.enPassantSquare;
-            moveInfo.previousWhiteCanShortCastle = game.whiteCanShortCastle;
-            moveInfo.previousWhiteCanLongCastle = game.whiteCanLongCastle;
-            moveInfo.previousBlackCanShortCastle = game.blackCanShortCastle;
-            moveInfo.previousBlackCanLongCastle = game.blackCanLongCastle;
-
-            game.plyNum++;
-            game.UpdateEnPassantSquare(movedPiece, moveInfo);
-            game.UpdateCastlingRights(movedPiece, moveInfo);
-
-            if (depth == 1)
+            if (!inCheck)
             {
-                stats.nodes++;
-                if (moveInfo.capturedPiece.HasValue)
-                    stats.captures++;
-                if (moveInfo.enPassant)
-                    stats.enPassants++;
-                if (moveInfo.shortCastle || moveInfo.longCastle)
-                    stats.castles++;
-                if (moveInfo.promotionType.HasValue)
-                    stats.promotions++;
-            }
-            else
-            {
-                Perft(game, depth - 1, ref stats);
+                if (depth == 1)
+                {
+                    stats.nodes++;
+                    if (moveInfo.capturedPiece.HasValue)
+                        stats.captures++;
+                    if (moveInfo.enPassant)
+                        stats.enPassants++;
+                    if (moveInfo.shortCastle || moveInfo.longCastle)
+                        stats.castles++;
+                    if (moveInfo.promotionType.HasValue)
+                        stats.promotions++;
+                }
+                else
+                {
+                    Perft(game, depth - 1, ref stats);
+                }
             }
 
-            game.board.UnmakeMove(moveInfo);
-            game.plyNum--;
-            game.enPassantSquare = moveInfo.previousEnPassantSquare;
-            game.whiteCanShortCastle = moveInfo.previousWhiteCanShortCastle;
-            game.whiteCanLongCastle = moveInfo.previousWhiteCanLongCastle;
-            game.blackCanShortCastle = moveInfo.previousBlackCanShortCastle;
-            game.blackCanLongCastle = moveInfo.previousBlackCanLongCastle;
+            // Always unmake the move!
+            game.SimplerUnmakeMove(moveInfo);
         }
     }
 
+   public static int Negamax(GameState game, int depth)
+    {
+        if (depth == 0)
+            return Eval.GetEvaluation(game); // No perspective flip inside
 
+        Span<Move> moves = stackalloc Move[256];
+        int count = game.AllLegalMoves(moves);
+
+        int bestScore = int.MinValue;
+
+        for (int i = 0; i < count; i++)
+        {
+            Move move = moves[i];
+
+            game.SimplerMakeMove(move, out MoveInfo moveInfo);
+
+            int score = -Negamax(game, depth - 1);
+
+            game.SimplerUnmakeMove(moveInfo);
+
+            bestScore = Math.Max(bestScore, score);
+        }
+
+        return bestScore;
+    }
+
+
+    public static Move FindBestMove(GameState game, int depth)
+    {
+        Span<Move> moves = stackalloc Move[256];
+        int count = game.AllLegalMoves(moves);
+
+        int bestEval = int.MinValue;
+        Move bestMove = default;
+
+        for (int i = 0; i < count; i++)
+        {
+            Move move = moves[i];
+
+            game.SimplerMakeMove(move, out MoveInfo moveInfo);
+
+            int eval = -Negamax(game, depth - 1);
+
+            game.SimplerUnmakeMove(moveInfo);
+
+            if (eval > bestEval)
+            {
+                bestEval = eval;
+                bestMove = move;
+            }
+        }
+
+        return bestMove;
+    }
+
+
+    public static PieceColor FlipColor(PieceColor color) =>
+        color == PieceColor.White ? PieceColor.Black : PieceColor.White;
 
 }
