@@ -3,8 +3,14 @@ public static class MoveGen
 {
     public static readonly ulong[] KnightLookUpTable = BoardUtils.KnightLookUpInit();
     public static readonly ulong[] KingLookUpTable = BoardUtils.KingLookUpInit();
+
+    public static readonly ulong[] WhitePawnPushTable = BoardUtils.PawnPushTableInit(PieceColor.White);
+    public static readonly ulong[] BlackPawnPushTable = BoardUtils.PawnPushTableInit(PieceColor.Black);
     public static readonly ulong[] WhitePawnAttackTable = BoardUtils.PawnAttacksInit(PieceColor.White);
     public static readonly ulong[] BlackPawnAttackTable = BoardUtils.PawnAttacksInit(PieceColor.Black);
+    
+    static readonly PieceType[] PromotionPieces = 
+        { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight };
 
     public static void AllPseudoLegalMoves(GameState game, Span<Move> moves, ref int count)
     {
@@ -50,6 +56,9 @@ public static class MoveGen
 
         ulong empty = board.EmptySquares;
         ulong opp = color == PieceColor.White ? board.BlackPieces : board.WhitePieces;
+        ulong[] attackTable = color == PieceColor.White ? WhitePawnAttackTable : BlackPawnAttackTable;
+        ulong[] pushTable = color == PieceColor.White ? WhitePawnPushTable : BlackPawnPushTable;
+
         int forward = color == PieceColor.White ? 8 : -8;
         int startRank = color == PieceColor.White ? 1 : 6;
         int promotionRank = color == PieceColor.White ? 7 : 0;
@@ -57,70 +66,64 @@ public static class MoveGen
 
         while (pawns != 0)
         {
-            int square = BitBoardUtils.PopLS1B(ref pawns);
-            int rank = square / 8;
-            int file = square % 8;
+            int from = BitBoardUtils.PopLS1B(ref pawns);
+            int rank = from / 8;
 
-            int to = square + forward;
-            if (to >= 0 && to < 64 && ((empty & (1UL << to)) != 0))
+            // Single push
+            ulong singlePushTargets = pushTable[from] & empty;
+            ulong validSinglePush = singlePushTargets;
+
+            while (validSinglePush != 0)
             {
+                int to = BitBoardUtils.PopLS1B(ref validSinglePush);
                 if (to / 8 == promotionRank)
                 {
-                    foreach (var promo in new[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
-                        moves[count++] = new Move(square, to, promo);
+                    foreach (var promo in PromotionPieces)
+                        moves[count++] = new Move(from, to, promo);
                 }
                 else
                 {
-                    moves[count++] = new Move(square, to);
+                    moves[count++] = new Move(from, to);
+
+                    // Double push
                     if (rank == startRank)
                     {
-                        int to2 = square + 2 * forward;
-                        int mid = square + forward;
-                        if ((empty & (1UL << to2)) != 0 && (empty & (1UL << mid)) != 0)
-                            moves[count++] = new Move(square, to2);
+                        int to2 = from + 2 * forward;
+                        int mid = from + forward;
+                        if (((empty >> to2) & 1) != 0 && ((empty >> mid) & 1) != 0)
+                            moves[count++] = new Move(from, to2);
                     }
                 }
             }
 
-            for (int df = -1; df <= 1; df += 2)
+            // Captures using attack table
+            ulong attacks = attackTable[from] & opp;
+            while (attacks != 0)
             {
-                int captureFile = file + df;
-                if ((uint)captureFile > 7) continue;
-                int captureTo = square + forward + df;
-                if ((uint)captureTo >= 64) continue;
-
-                if ((opp & (1UL << captureTo)) != 0)
+                int to = BitBoardUtils.PopLS1B(ref attacks);
+                if (to / 8 == promotionRank)
                 {
-                    if (captureTo / 8 == promotionRank)
-                    {
-                        foreach (var promo in new[] { PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight })
-                            moves[count++] = new Move(square, captureTo, promo);
-                    }
-                    else
-                    {
-                        moves[count++] = new Move(square, captureTo);
-                    }
+                    foreach (var promo in PromotionPieces)
+                        moves[count++] = new Move(from, to, promo);
+                }
+                else
+                {
+                    moves[count++] = new Move(from, to);
                 }
             }
 
+            // En Passant
             if (game.enPassantSquare != -1 && rank == enPassantRank)
             {
-                for (int df = -1; df <= 1; df += 2)
+                ulong epMask = 1UL << game.enPassantSquare;
+                if ((attackTable[from] & epMask) != 0)
                 {
-                    int epFile = file + df;
-                    if ((uint)epFile > 7) continue;
-                    int epTo = square + forward + df;
-                    if (epTo == game.enPassantSquare && (epTo / 8 != promotionRank))
-                    {
-                        int epPawnSquare = square + df;
-                        ulong epPawnMask = 1UL << epPawnSquare;
-                        if ((opp & epPawnMask) != 0)
-                            moves[count++] = new Move(square, epTo);
-                    }
+                    moves[count++] = new Move(from, game.enPassantSquare);
                 }
             }
         }
     }
+
 
 
     public static void KnightMoves(Board board, PieceColor color, bool forAttackMap, Span<Move> moves, ref int count)

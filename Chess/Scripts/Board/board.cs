@@ -210,7 +210,7 @@ public class Board
             moveInfo.capturedPiece = capturedPiece;
         }
 
-        // Castling (switch instead of many ifs)
+        // Castling
         if (pieceToMove.type == PieceType.King)
         {
             switch ((move.fromIndex, move.toIndex, pieceToMove.color))

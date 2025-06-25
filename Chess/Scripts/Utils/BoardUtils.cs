@@ -134,6 +134,30 @@ public static class BoardUtils
         return result;
     }
 
+    public static ulong[] PawnPushTableInit(PieceColor color)
+    {
+        ulong[] result = new ulong[64];
+
+        for (int i = 0; i < 64; i++)
+        {
+            ulong moves = 0UL;
+            ulong from = 1UL << i;
+
+            if (color == PieceColor.White)
+            {
+                moves |= from << 8;
+                result[i] = moves;
+            }
+            else
+            {
+                moves |= from >> 8;
+                result[i] = moves;
+            }
+        }
+
+        return result;
+    }
+
     public static Piece GetPieceAt(Board board, int squareIndex)
     {
         return board.Pieces[squareIndex] ?? throw new Exception($"No piece at {squareIndex}");
