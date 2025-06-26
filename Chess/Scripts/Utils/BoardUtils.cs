@@ -184,27 +184,6 @@ public static class BoardUtils
         }
     }
 
-    public static ref ulong GetAttackBitboardFromPiece(Board board, Piece piece)
-    {
-        switch (piece.type)
-        {
-            case PieceType.Pawn:
-                return ref piece.color == PieceColor.White ? ref board.WhitePawnAttacks : ref board.BlackPawnAttacks;
-            case PieceType.Knight:
-                return ref piece.color == PieceColor.White ? ref board.WhiteKnightAttacks : ref board.BlackKnightAttacks;
-            case PieceType.Bishop:
-                return ref piece.color == PieceColor.White ? ref board.WhiteBishopAttacks : ref board.BlackBishopAttacks;
-            case PieceType.Rook:
-                return ref piece.color == PieceColor.White ? ref board.WhiteRookAttacks : ref board.BlackRookAttacks;
-            case PieceType.Queen:
-                return ref piece.color == PieceColor.White ? ref board.WhiteQueenAttacks : ref board.BlackQueenAttacks;
-            case PieceType.King:
-                return ref piece.color == PieceColor.White ? ref board.WhiteKingAttacks : ref board.BlackKingAttacks;
-            default:
-                throw new ArgumentException("Invalid piece type");
-        }
-    }
-
     public static void ParseFen(GameState gameState, string fen)
     {
         // starting fen: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
