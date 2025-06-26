@@ -1,4 +1,5 @@
 
+<<<<<<< HEAD
 # <ins> The basics </ins>
 
 This project is a chess engine. Its not professional or high quality or even that good, but it is what it is.
@@ -17,3 +18,6 @@ Of course, a computer can't do this becuase it doesn't have a *"mind"* (unless, 
 So, instead of making a computer "think", we exploit its speed. We, let say, look into the future of a current position. That is, we look at all the possible moves in a position and determine which one leads to the best **evaluation**, which is a score given to a positon, which indicated which side is better (positive means white is better, negitive means black is, and 0 means its roughly equal).
 
 Its much more than that. But that is why I have an entire seperate folder called docs isnt it.
+=======
+# <ins> The basics </ins>
+>>>>>>> 4eb9c4fff4f49f14fef4e0f670f1f2dbda68510a
