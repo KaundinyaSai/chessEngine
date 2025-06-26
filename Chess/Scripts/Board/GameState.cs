@@ -21,6 +21,7 @@ public class GameState
 
     public GameState(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     {
+        Magic.AttackTablesInit();
         board = new Board(fen);
         board.PopulateFromFen(fen);
 
@@ -62,44 +63,6 @@ public class GameState
         castlingRights = moveToUnmake.previousCastlingRights;
     }
 
-    public void SetAttackTables(Piece piece)
-    {
-        ref ulong bb = ref BoardUtils.GetAttackBitboardFromPiece(board, piece);
-        bb = 0;
-
-        if (piece.type == PieceType.Pawn)
-        {
-            ulong pawns = piece.color == PieceColor.White ? board.WhitePawns : board.BlackPawns;
-            var pawnAttackTable = piece.color == PieceColor.White
-                ? MoveGen.WhitePawnAttackTable
-                : MoveGen.BlackPawnAttackTable;
-
-            while (pawns != 0)
-            {
-                int sq = BitBoardUtils.PopLS1B(ref pawns);
-                bb |= pawnAttackTable[sq];
-            }
-        }
-        else
-        {
-            Span<Move> buffer = stackalloc Move[256];
-            int count = 0;
-
-            MoveGen.MovesForPiece(this, piece, true, buffer, ref count);
-        }
-    }
-
-    public void SetAllAttackTables()
-    {
-        foreach (PieceColor color in Enum.GetValues(typeof(PieceColor)))
-        {
-            foreach (PieceType type in Enum.GetValues(typeof(PieceType)))
-            {
-                SetAttackTables(new Piece(type, color));
-            }
-        }
-    }
-
     public bool IsMoveLegal(Move move)
     {
         Piece piece = BoardUtils.GetPieceAt(board, move.fromIndex);
@@ -124,11 +87,9 @@ public class GameState
 
         // Check if it leaves the king in check
         board.MakeMove(move, enPassantSquare, out MoveInfo moveInfo, out piece);
-        SetAllAttackTables();
 
         bool kingInCheck = piece.color == PieceColor.White ? IsWhiteKingInCheck : IsBlackKingInCheck;
         board.UnmakeMove(moveInfo);
-        SetAllAttackTables();
 
         return !kingInCheck;
     }

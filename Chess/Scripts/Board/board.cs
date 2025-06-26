@@ -42,29 +42,6 @@ public class Board
     public ulong WhiteQueenAttacks;
     public ulong WhiteKingAttacks;
 
-    public ulong BlackPawnAttacks;
-    public ulong BlackKnightAttacks;
-    public ulong BlackBishopAttacks;
-    public ulong BlackRookAttacks;
-    public ulong BlackQueenAttacks;
-    public ulong BlackKingAttacks;
-    public ulong WhiteAttacks =>
-        WhitePawnAttacks |
-        WhiteKnightAttacks |
-        WhiteBishopAttacks |
-        WhiteRookAttacks |
-        WhiteQueenAttacks |
-        WhiteKingAttacks;
-
-    public ulong BlackAttacks =>
-        BlackPawnAttacks |
-        BlackKnightAttacks |
-        BlackBishopAttacks |
-        BlackRookAttacks |
-        BlackQueenAttacks |
-        BlackKingAttacks;
-
-
     // for preventing wraparound
     public const ulong FileA = 0x0101010101010101UL;
     public const ulong FileH = 0x8080808080808080UL;
@@ -72,9 +49,8 @@ public class Board
     public const ulong FileG = 0x4040404040404040UL;
 
     public Piece?[] Pieces = new Piece?[64];
-
-
-    public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    
+     public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     {
         // Clear bitboards
         WhitePawns = WhiteKnights = WhiteBishops = WhiteRooks = WhiteQueens = WhiteKing = 0;

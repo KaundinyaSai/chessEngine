@@ -1,13 +1,12 @@
 ﻿
 using System.Diagnostics;
 
-Magic.AttackTablesInit();
-
 GameState game = new GameState();
 
 Stopwatch stopwatch = Stopwatch.StartNew();
 
-Console.WriteLine(Search.Perft(game, 6));
+Move move = Search.FindBestMove(game, 5);
+Console.WriteLine($"{move.fromIndex} -> {move.toIndex}");
 
 stopwatch.Stop();
 Console.WriteLine($"Elapsed time: {stopwatch.Elapsed}");
