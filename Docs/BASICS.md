@@ -1,5 +1,5 @@
 
-# <ins> The basics </ins>
+# <ins> The Basics </ins>
 
 This project is a chess engine. Its not professional or high quality or even that good, but it is what it is.
 

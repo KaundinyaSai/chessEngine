@@ -255,19 +255,27 @@ public static class BoardUtils
 
     public static bool IsAttackedBySlidingPieces(Board board, int square, PieceColor attackerColor)
     {
-        Span<Move> buffer = stackalloc Move[64];
-        int count = 0;
+        ulong occupancy = board.AllPieces;
 
-        MoveGen.RookMovesMagic(board, attackerColor, true, buffer, ref count);
-        MoveGen.BishopMovesMagic(board, attackerColor, true, buffer, ref count);
-        MoveGen.QueenMovesMagic(board, attackerColor, true, buffer, ref count);
+        ulong rooks = attackerColor == PieceColor.White ? board.WhiteRooks : board.BlackRooks;
+        ulong bishops = attackerColor == PieceColor.White ? board.WhiteBishops : board.BlackBishops;
+        ulong queens = attackerColor == PieceColor.White ? board.WhiteQueens : board.BlackQueens;
 
-        for (int i = 0; i < count; i++)
-            if (buffer[i].toIndex == square)
-                return true;
+        // Rook and queen attacks (orthogonal)
+        ulong rookAttackers = rooks | queens;
+        ulong rookAttacks = Magic.GetRookAttacks(square, occupancy);
+        if ((rookAttacks & rookAttackers) != 0)
+            return true;
+
+        // Bishop and queen attacks (diagonal)
+        ulong bishopAttackers = bishops | queens;
+        ulong bishopAttacks = Magic.GetBishopAttacks(square, occupancy);
+        if ((bishopAttacks & bishopAttackers) != 0)
+            return true;
 
         return false;
     }
+
     public static string ConvertToAlg(Move move)
     {
         // eg: Move(12, 28) = e2e4
@@ -299,6 +307,39 @@ public static class BoardUtils
         ulong bb = color == PieceColor.White ? board.WhiteKing : board.BlackKing;
 
         return BitOperations.TrailingZeroCount(bb);
+    }
+
+    public static bool IsMoveCapture(Move move, Board board)
+    {
+        // A move is a capture if the destination square is occupied by an opponent's piece
+        Piece piece = GetPieceAt(board, move.fromIndex);
+
+        ulong targetSquare = 1UL << move.toIndex;
+        ulong opponentPieces = piece.color == PieceColor.White ? board.BlackPieces : board.WhitePieces;
+
+        return (targetSquare & opponentPieces) != 0;
+    }
+
+    public static bool IsMovePromotion(Move move, Board board)
+    {
+        // A move is a promotion if the piece is a pawn and it moves to the last rank
+
+        Piece piece = GetPieceAt(board, move.fromIndex);
+        return (piece.type == PieceType.Pawn) &&
+               ((move.toIndex / 8 == 0 && piece.color == PieceColor.White) ||
+                (move.toIndex / 8 == 7 && piece.color == PieceColor.Black));
+    }
+    
+    public static bool IsMoveCastle(Move move, Board board)
+    {
+        // A move is a castle if the piece is a king and it moves two squares towards a rook
+        Piece piece = GetPieceAt(board, move.fromIndex);
+        if (piece.type != PieceType.King) return false;
+
+        int rank = move.fromIndex / 8;
+        int fileDiff = Math.Abs(move.toIndex % 8 - move.fromIndex % 8);
+
+        return fileDiff == 2 && (rank == 0 || rank == 7); 
     }
 
 }
