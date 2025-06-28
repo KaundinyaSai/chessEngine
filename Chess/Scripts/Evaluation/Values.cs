@@ -57,16 +57,13 @@ public static class Values
         // Again, center good and corner bad.
         // The more squares a bishop can control from a square, the better.
 
-        // Also, I gave bonuses to b2 and g2 as they are the "finachetto" squares, and i love to fianchetto my bishops, as
-        // they can hard to see and they can just snipe to the corner of the board. (Personal preferance)
-
         -20,-10,-10,-10,-10,-10,-10,-20,
         -10,  0,  0,  0,  0,  0,  0,-10,
         -10,  0,  5, 10, 10,  5,  0,-10,
         -10,  5,  5, 10, 10,  5,  5,-10,
         -10,  0, 10, 10, 10, 10,  0,-10,
         -10, 10, 10, 10, 10, 10, 10,-10,
-        -10,  10,  0,  0,  0,  0, 10,-10,
+        -10,  0,  0,  0,  0,  0, 0,-10,
         -20,-10,-10,-10,-10,-10,-10,-20,
     ];
 
@@ -77,9 +74,9 @@ public static class Values
         0,  0,  0,  0,  0,  0,  0,  0,
         5, 10, 10, 10, 10, 10, 10,  5,
         -5,  0,  0,  0,  0,  0,  0, -5,
-        -5,  0,  0,  0,  0,  0,  0, -5,
-        -5,  0,  0,  0,  0,  0,  0, -5,
-        -5,  0,  0,  0,  0,  0,  0, -5,
+        -5,  0,  0,  5,  5,  0,  0, -5,
+        -5,  0,  0,  5,  5,  0,  0, -5,
+        -5,  0,  0,  5,  5,  0,  0, -5,
         -5,  0,  0,  0,  0,  0,  0, -5,
         0,  0,  0,  5,  5,  0,  0,  0
     ];
@@ -108,7 +105,7 @@ public static class Values
         -20,-30,-30,-40,-40,-30,-30,-20,
         -10,-20,-20,-20,-20,-20,-20,-10,
         20, 20,  0,  0,  0,  0, 20, 20,
-        20, 30, 10,  0,  0, 10, 30, 20
+        20, 30, 50,  0,  0, 10, 50, 20
     ];
 
     public static readonly int[] KingTableEndgame = [
@@ -133,5 +130,8 @@ public static class Values
         int mirroredRank = 7 - rank;
         return (mirroredRank * 8) + file;
     }
+
+    // Value for mate
+    public static readonly int MATE_VALUE = 100000;
 
 }

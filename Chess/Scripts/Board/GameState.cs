@@ -1,4 +1,5 @@
 
+using System.ComponentModel;
 using System.Numerics;
 
 public class GameState
@@ -19,7 +20,7 @@ public class GameState
     public bool IsWhiteKingInCheck => BoardUtils.IsSquareAttacked(board, BitOperations.TrailingZeroCount(board.WhiteKing), PieceColor.Black);
     public bool IsBlackKingInCheck => BoardUtils.IsSquareAttacked(board, BitOperations.TrailingZeroCount(board.BlackKing), PieceColor.White);
 
-    public GameState(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    public GameState(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") // Starting fen
     {
         Magic.AttackTablesInit();
         board = new Board(fen);
@@ -95,7 +96,7 @@ public class GameState
     }
 
 
-    public int AllLegalMoves(Span<Move> legalMoves)
+    public int AllLegalMoves(Span<Move> legalMoves, bool onlyCaptures = false)
     {
         Span<Move> pseudoMoves = stackalloc Move[256];
         int pseudoCount = 0;
@@ -105,9 +106,14 @@ public class GameState
         int whiteKingSquare = BitBoardUtils.GetKingSquare(board, PieceColor.White);
         int blackKingSquare = BitBoardUtils.GetKingSquare(board, PieceColor.Black);
 
+
         for (int i = 0; i < pseudoCount; i++)
         {
             Move move = pseudoMoves[i];
+
+            if (onlyCaptures && !BoardUtils.IsMoveCapture(move, board))
+                continue;
+
             board.MakeMove(move, enPassantSquare, out var moveInfo, out var piece);
             plyNum++;
 
@@ -207,6 +213,5 @@ public class GameState
         enPassantSquare = moveInfo.previousEnPassantSquare;
         castlingRights = moveInfo.previousCastlingRights;
     }
-
 
 }
