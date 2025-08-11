@@ -1,3 +1,5 @@
+namespace ChessEngine;
+
 public static class MagicGenerator
 {
     public static ulong FindMagic(int square, bool isRook, int relevantBits)
@@ -66,3 +68,4 @@ public static class MagicGenerator
         return (ulong)(rng.NextInt64() & rng.NextInt64() & rng.NextInt64());
     }
 }
+

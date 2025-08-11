@@ -1,6 +1,7 @@
 
-using System.ComponentModel;
 using System.Numerics;
+
+namespace ChessEngine;
 
 public class GameState
 {
@@ -20,6 +21,7 @@ public class GameState
     public bool IsWhiteKingInCheck => BoardUtils.IsSquareAttacked(board, BitOperations.TrailingZeroCount(board.WhiteKing), PieceColor.Black);
     public bool IsBlackKingInCheck => BoardUtils.IsSquareAttacked(board, BitOperations.TrailingZeroCount(board.BlackKing), PieceColor.White);
 
+    const int ENDGAME_MATERIAL_THRESHOLD = 1300; // Estimation of material for endgame, about 13 pawns worth of material
     public GameState(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") // Starting fen
     {
         Magic.AttackTablesInit();
@@ -96,7 +98,7 @@ public class GameState
     }
 
 
-    public int AllLegalMoves(Span<Move> legalMoves, bool onlyCaptures = false)
+    public int AllLegalMoves(Span<Move> legalMoves, bool onlyCaptures = false, bool onlyChecks = false)
     {
         Span<Move> pseudoMoves = stackalloc Move[256];
         int pseudoCount = 0;
@@ -111,7 +113,13 @@ public class GameState
         {
             Move move = pseudoMoves[i];
 
-            if (onlyCaptures && !BoardUtils.IsMoveCapture(move, board))
+            if (onlyCaptures && onlyChecks && (!BoardUtils.IsMoveCapture(move, board) || !BoardUtils.IsMoveCheck(move, this, sideToMove)))
+                continue;
+
+            if ((onlyChecks && !onlyCaptures) && !BoardUtils.IsMoveCheck(move, this, sideToMove))
+                continue;
+
+            if ((onlyCaptures && !onlyChecks) && !BoardUtils.IsMoveCapture(move, board))
                 continue;
 
             board.MakeMove(move, enPassantSquare, out var moveInfo, out var piece);
@@ -213,5 +221,6 @@ public class GameState
         enPassantSquare = moveInfo.previousEnPassantSquare;
         castlingRights = moveInfo.previousCastlingRights;
     }
-
 }
+
+

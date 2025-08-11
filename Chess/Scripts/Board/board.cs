@@ -1,3 +1,4 @@
+namespace ChessEngine;
 
 public class Board
 {
@@ -50,7 +51,7 @@ public class Board
 
     public Piece?[] Pieces = new Piece?[64];
     
-     public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    public Board(string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     {
         // Clear bitboards
         WhitePawns = WhiteKnights = WhiteBishops = WhiteRooks = WhiteQueens = WhiteKing = 0;
@@ -337,4 +338,6 @@ public class Board
         }
     }
 }
+
+
 

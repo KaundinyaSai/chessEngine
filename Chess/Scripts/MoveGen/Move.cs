@@ -1,3 +1,4 @@
+namespace ChessEngine;
 
 public struct Move
 {
@@ -33,6 +34,23 @@ public struct Move
 
     public static bool operator ==(Move a, Move b) => a.rawMove == b.rawMove;
     public static bool operator !=(Move a, Move b) => a.rawMove != b.rawMove;
+
+    public static Move FromUci(string uci, GameState game)
+    {
+        if (uci.Length != 4 && uci.Length != 5)
+            throw new ArgumentException("Invalid UCI move format");
+
+        int from = BitBoardUtils.SquareFromUci(uci.Substring(0, 2));
+        int to = BitBoardUtils.SquareFromUci(uci.Substring(2, 2));
+        PieceType? promotionType = null;
+
+        if (uci.Length == 5)
+        {
+            promotionType = BoardUtils.getPromotionType(uci[4]);
+        }
+
+        return new Move(from, to, promotionType);
+    }
 }
 
 public struct MoveInfo

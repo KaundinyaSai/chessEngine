@@ -1,3 +1,5 @@
+namespace ChessEngine;
+
 public struct Piece
 {
     public PieceType type;

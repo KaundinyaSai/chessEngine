@@ -1,6 +1,8 @@
 
 using System.Numerics;
 
+namespace ChessEngine;
+
 public static class BitBoardUtils
 {
     // Common shit:
@@ -101,5 +103,19 @@ public static class BitBoardUtils
             if (((bb >> i) & 1UL) != 0)
                 indices.Add(i);
         return indices;
+    }
+
+    public static int SquareFromUci(string uci)
+    {
+        if (uci.Length != 2)
+            throw new ArgumentException("Invalid UCI square format");
+
+        int file = uci[0] - 'a'; // 'a' -> 0, 'b' -> 1, ..., 'h' -> 7
+        int rank = uci[1] - '1'; // '1' -> 0, '2' -> 1, ..., '8' -> 7
+
+        if (file < 0 || file > 7 || rank < 0 || rank > 7)
+            throw new ArgumentOutOfRangeException("UCI square out of range");
+
+        return rank * 8 + file; // Convert to single index
     }
 }

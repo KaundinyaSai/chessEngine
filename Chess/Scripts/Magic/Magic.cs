@@ -1,4 +1,6 @@
 
+namespace ChessEngine;
+
 public static class Magic
 {
     // Magic numbers
@@ -309,7 +311,7 @@ public static class Magic
         }
         return index;
     }
-    
+
     public static ulong GetRookAttacks(int square, ulong occupancy)
     {
         ulong blockers = occupancy & RookMasks[square];

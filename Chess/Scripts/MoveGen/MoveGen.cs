@@ -1,4 +1,6 @@
 
+namespace ChessEngine;
+
 public static class MoveGen
 {
     public static readonly ulong[] KnightLookUpTable = BoardUtils.KnightLookUpInit();
@@ -28,7 +30,7 @@ public static class MoveGen
         switch (piece.type)
         {
             case PieceType.Pawn:
-                PawnMoves(game, piece.color, moves, ref count);
+                PawnMoves(game, piece.color, false, moves, ref count);
                 break;
             case PieceType.Knight:
                 KnightMoves(game.board, piece.color, forAttackMap, moves, ref count);
@@ -48,7 +50,7 @@ public static class MoveGen
         }
     }
 
-    public static void PawnMoves(GameState game, PieceColor color, Span<Move> moves, ref int count)
+    public static void PawnMoves(GameState game, PieceColor color, bool forAttackMap, Span<Move> moves, ref int count)
     {
         Board board = game.board;
         ulong pawns = color == PieceColor.White ? board.WhitePawns : board.BlackPawns;
@@ -69,39 +71,42 @@ public static class MoveGen
             int from = BitBoardUtils.PopLS1B(ref pawns);
             int rank = from / 8;
 
-            // Single push
-            ulong singlePushTargets = pushTable[from] & empty;
-            ulong validSinglePush = singlePushTargets;
-
-            while (validSinglePush != 0)
+            if (!forAttackMap)
             {
-                int to = BitBoardUtils.PopLS1B(ref validSinglePush);
-                if (to / 8 == promotionRank)
-                {
-                    foreach (var promo in PromotionPieces)
-                        moves[count++] = new Move(from, to, promo);
-                }
-                else
-                {
-                    moves[count++] = new Move(from, to);
+                // Single push
+                ulong singlePushTargets = pushTable[from] & empty;
+                ulong validSinglePush = singlePushTargets;
 
-                    // Double push
-                    if (rank == startRank)
+                while (validSinglePush != 0)
+                {
+                    int to = BitBoardUtils.PopLS1B(ref validSinglePush);
+                    if (to / 8 == promotionRank)
                     {
-                        int to2 = from + 2 * forward;
-                        int mid = from + forward;
-                        if (((empty >> to2) & 1) != 0 && ((empty >> mid) & 1) != 0)
-                            moves[count++] = new Move(from, to2);
+                        foreach (var promo in PromotionPieces)
+                            moves[count++] = new Move(from, to, promo);
+                    }
+                    else
+                    {
+                        moves[count++] = new Move(from, to);
+
+                        // Double push
+                        if (rank == startRank)
+                        {
+                            int to2 = from + 2 * forward;
+                            int mid = from + forward;
+                            if (((empty >> to2) & 1) != 0 && ((empty >> mid) & 1) != 0)
+                                moves[count++] = new Move(from, to2);
+                        }
                     }
                 }
             }
 
             // Captures using attack table
-            ulong attacks = attackTable[from] & opp;
+            ulong attacks = forAttackMap ? attackTable[from] : (attackTable[from] & opp);
             while (attacks != 0)
             {
                 int to = BitBoardUtils.PopLS1B(ref attacks);
-                if (to / 8 == promotionRank)
+                if (!forAttackMap && to / 8 == promotionRank)
                 {
                     foreach (var promo in PromotionPieces)
                         moves[count++] = new Move(from, to, promo);
@@ -112,19 +117,20 @@ public static class MoveGen
                 }
             }
 
-            // En Passant
-            if (game.enPassantSquare != -1 && rank == enPassantRank)
+            if (!forAttackMap)
             {
-                ulong epMask = 1UL << game.enPassantSquare;
-                if ((attackTable[from] & epMask) != 0)
+                // En Passant
+                if (game.enPassantSquare != -1 && rank == enPassantRank)
                 {
-                    moves[count++] = new Move(from, game.enPassantSquare);
+                    ulong epMask = 1UL << game.enPassantSquare;
+                    if ((attackTable[from] & epMask) != 0)
+                    {
+                        moves[count++] = new Move(from, game.enPassantSquare);
+                    }
                 }
             }
         }
     }
-
-
 
     public static void KnightMoves(Board board, PieceColor color, bool forAttackMap, Span<Move> moves, ref int count)
     {
@@ -230,9 +236,6 @@ public static class MoveGen
             }
         }
     }
-
-
-    
     public static ulong SlidingAttack(int square, ulong blockers, bool isRook)
     {
         ulong attacks = 0UL;
@@ -286,7 +289,6 @@ public static class MoveGen
         }
     }
 
-
     public static void RookMovesMagic(Board board, PieceColor color, bool forAttackMap, Span<Move> moves, ref int count)
     {
         ulong bitboard = color == PieceColor.White ? board.WhiteRooks : board.BlackRooks;
@@ -311,8 +313,7 @@ public static class MoveGen
         }
     }
 
-
-   public static void QueenMovesMagic(Board board, PieceColor color, bool forAttackMap, Span<Move> moves, ref int count)
+    public static void QueenMovesMagic(Board board, PieceColor color, bool forAttackMap, Span<Move> moves, ref int count)
     {
         ulong bitboard = color == PieceColor.White ? board.WhiteQueens : board.BlackQueens;
         if (bitboard == 0) return;
@@ -342,7 +343,6 @@ public static class MoveGen
             }
         }
     }
-
 
     public static bool IsWrapAround(int dir, int fromSquare)
     {

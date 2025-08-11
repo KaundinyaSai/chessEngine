@@ -1,6 +1,8 @@
 
 using System.Numerics;
 
+namespace ChessEngine;
+
 public static class BoardUtils
 {
     public static void PrintBitboard(ulong bitboard)
@@ -326,10 +328,10 @@ public static class BoardUtils
 
         Piece piece = GetPieceAt(board, move.fromIndex);
         return (piece.type == PieceType.Pawn) &&
-               ((move.toIndex / 8 == 0 && piece.color == PieceColor.White) ||
+            ((move.toIndex / 8 == 0 && piece.color == PieceColor.White) ||
                 (move.toIndex / 8 == 7 && piece.color == PieceColor.Black));
     }
-    
+
     public static bool IsMoveCastle(Move move, Board board)
     {
         // A move is a castle if the piece is a king and it moves two squares towards a rook
@@ -339,7 +341,51 @@ public static class BoardUtils
         int rank = move.fromIndex / 8;
         int fileDiff = Math.Abs(move.toIndex % 8 - move.fromIndex % 8);
 
-        return fileDiff == 2 && (rank == 0 || rank == 7); 
+        return fileDiff == 2 && (rank == 0 || rank == 7);
     }
 
+    public static bool IsMoveCheck(Move move, GameState game, PieceColor sideToMove)
+    {
+        // A move is a check if it puts the opponent's king in check
+        int kingSquare = GetKingSquare(game.board, sideToMove == PieceColor.White ? PieceColor.Black : PieceColor.White);
+        game.SimplerMakeMove(move, out MoveInfo moveInfo);
+        bool inCheck = IsSquareAttacked(game.board, kingSquare, sideToMove);
+        game.SimplerUnmakeMove(moveInfo);
+        
+        return inCheck;
+    }
+
+    public static Move ParseMoveUci(GameState state, string uci)
+    {
+        // Get all legal moves in the current position
+        Span<Move> legalMoves = stackalloc Move[256];
+        int count = state.AllLegalMoves(legalMoves);
+
+        // Try to find the move that matches the UCI string
+        foreach (var move in legalMoves)
+        {
+            if (ConvertToAlg(move) == uci)
+                return move;
+        }
+
+        throw new ArgumentException($"Illegal move: {uci}");
+    }
+
+    public static int GetDistanceToCorner(int square)
+    {
+        int rank = square / 8;
+        int file = square % 8;
+
+        int distA1 = rank + file;
+        int distH1 = rank + (7 - file);
+        int distA8 = (7 - rank) + file;
+        int distH8 = (7 - rank) + (7 - file);
+
+        return Math.Min(Math.Min(distA1, distH1), Math.Min(distA8, distH8));
+    }
+
+
 }
+    
+
+
