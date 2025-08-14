@@ -35,6 +35,67 @@ public static class Search
         return nodes;
     }
 
+    public static Move FindBestMove(GameState game, int depth)
+    {
+        Span<Move> legalMoves = stackalloc Move[256];
+        int moveCount = game.AllLegalMoves(legalMoves);
+
+        Move bestMove = default;
+        int bestValue = int.MinValue;
+
+        for (int i = 0; i < moveCount; i++)
+        {
+            Move move = legalMoves[i];
+
+            game.SimplerMakeMove(move, out MoveInfo mi);
+            int value = -SearchForMove(game, depth - 1, int.MinValue + 1, int.MaxValue - 1);
+            game.SimplerUnmakeMove(mi);
+
+            if (value > bestValue)
+            {
+                bestValue = value;
+                bestMove = move;
+            }
+        }
+
+        return bestMove;
+    }
+
+    private static int SearchForMove(GameState game, int depth, int alpha, int beta)
+    {
+        if (depth == 0)
+            return Eval.Evaluate(game);
+
+        Span<Move> moves = stackalloc Move[256];
+        int moveCount = game.AllLegalMoves(moves);
+
+        if (moveCount == 0)
+        {
+            bool inCheck = game.sideToMove == PieceColor.White
+                ? game.IsWhiteKingInCheck
+                : game.IsBlackKingInCheck;
+            return inCheck ? (-99999 + depth) : 0;
+        }
+
+        int bestValue = int.MinValue;
+
+        for (int i = 0; i < moveCount; i++)
+        {
+            Move move = moves[i];
+            game.SimplerMakeMove(move, out MoveInfo mi);
+            int value = -SearchForMove(game, depth - 1, -beta, -alpha);
+            game.SimplerUnmakeMove(mi);
+
+            if (value > bestValue) bestValue = value;
+            if (value > alpha) alpha = value;
+
+            if (alpha >= beta)
+                break;
+        }
+
+        return bestValue;
+    }
+
 }
 
 

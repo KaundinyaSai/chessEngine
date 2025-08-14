@@ -35,14 +35,6 @@ public class Board
 
     // Oh and the LSB (least significant bit or the right most bit) is for square a1 and so on till MSB is h8.
 
-    // Attack tables (sqaures which are attacked by pieces)
-    public ulong WhitePawnAttacks;
-    public ulong WhiteKnightAttacks;
-    public ulong WhiteBishopAttacks;
-    public ulong WhiteRookAttacks;
-    public ulong WhiteQueenAttacks;
-    public ulong WhiteKingAttacks;
-
     // for preventing wraparound
     public const ulong FileA = 0x0101010101010101UL;
     public const ulong FileH = 0x8080808080808080UL;
@@ -248,95 +240,129 @@ public class Board
         }
     }
 
-    public void UnmakeMove(MoveInfo moveInfoToUndo)
+    public void UnmakeMove(MoveInfo mi)
     {
-        int from = moveInfoToUndo.move.fromIndex;
-        int to = moveInfoToUndo.move.toIndex;
+        int from = mi.move.fromIndex;
+        int to   = mi.move.toIndex;
 
-        Piece thisPiece;
-
-        if (moveInfoToUndo.promotionType != null)
+        // Figure out the moving piece color & type at the time of the move.
+        // If it was a promotion, the piece currently on 'to' is the promoted piece.
+        Piece moverOnTo;
+        if (mi.promotionType != null)
         {
-            thisPiece = new Piece(moveInfoToUndo.promotionType.Value, BoardUtils.GetPieceAt(this, to).color);
-            ref ulong promoBB = ref BoardUtils.GetBitboardFromPiece(this, thisPiece);
+            // The piece on 'to' *should* be the promoted piece.
+            var promoted = BoardUtils.GetPieceAt(this, to);
+            moverOnTo = new Piece(mi.promotionType.Value, promoted.color);
+
+            // Remove promoted piece from its bitboard at 'to'
+            ref ulong promoBB = ref BoardUtils.GetBitboardFromPiece(this, moverOnTo);
             promoBB = BitBoardUtils.ClearBit(promoBB, to);
 
-            Pieces[to] = moveInfoToUndo.capturedPiece;
-
-            ref ulong pawnBB = ref thisPiece.color == PieceColor.White ? ref WhitePawns : ref BlackPawns;
-            pawnBB = BitBoardUtils.SetBit(pawnBB, from);
-
-            Pieces[from] = new Piece(PieceType.Pawn, thisPiece.color);
+            // We will place a pawn back on 'from' below.
         }
         else
         {
-            thisPiece = BoardUtils.GetPieceAt(this, to);
-            ref ulong thisPieceBB = ref BoardUtils.GetBitboardFromPiece(this, thisPiece);
+            // Non-promotion: moving piece sits on 'to'
+            moverOnTo = BoardUtils.GetPieceAt(this, to);
 
-            Pieces[to] = moveInfoToUndo.capturedPiece;
-
-            thisPieceBB = BitBoardUtils.ClearBit(thisPieceBB, to);
-            thisPieceBB = BitBoardUtils.SetBit(thisPieceBB, from);
-
-            Pieces[from] = thisPiece;
+            // Remove it from 'to' in its bitboard; will add back to 'from' below.
+            ref ulong moverBB = ref BoardUtils.GetBitboardFromPiece(this, moverOnTo);
+            moverBB = BitBoardUtils.ClearBit(moverBB, to);
         }
 
-        if (moveInfoToUndo.capturedPiece != null)
+        // Handle captured piece restoration in bitboards and Pieces[].
+        if (mi.capturedPiece != null)
         {
-            ref ulong enemyBB = ref BoardUtils.GetBitboardFromPiece(this, moveInfoToUndo.capturedPiece.Value);
-            if (moveInfoToUndo.enPassant)
+            ref ulong enemyBB = ref BoardUtils.GetBitboardFromPiece(this, mi.capturedPiece.Value);
+
+            if (mi.enPassant)
             {
-                int epOffset = thisPiece.color == PieceColor.White ? -8 : 8;
-                int epIndex = to + epOffset;
+                // EP capture: captured pawn was NOT on 'to', it was behind it.
+                int epOffset = moverOnTo.color == PieceColor.White ? -8 : 8;
+                int epIndex  = to + epOffset;
+
                 enemyBB = BitBoardUtils.SetBit(enemyBB, epIndex);
-                Pieces[epIndex] = moveInfoToUndo.capturedPiece;
+                Pieces[epIndex] = mi.capturedPiece;
+
+                // IMPORTANT: 'to' square was empty before the move; clear it
+                Pieces[to] = null;
             }
             else
             {
+                // Normal capture: the captured piece sat on 'to'
                 enemyBB = BitBoardUtils.SetBit(enemyBB, to);
+                Pieces[to] = mi.capturedPiece;
             }
         }
-
-        if (moveInfoToUndo.shortCastle)
+        else
         {
-            switch (thisPiece.color)
+            // No capture: 'to' square becomes empty
+            Pieces[to] = null;
+        }
+
+        // Restore the moving side's piece back to 'from'
+        if (mi.promotionType != null)
+        {
+            // The mover was a pawn that promoted; restore a pawn at 'from'
+            var pawn = new Piece(PieceType.Pawn, moverOnTo.color);
+            ref ulong pawnBB = ref BoardUtils.GetBitboardFromPiece(this, pawn);
+            pawnBB = BitBoardUtils.SetBit(pawnBB, from);
+            Pieces[from] = pawn;
+        }
+        else
+        {
+            // Non-promotion: restore the mover to 'from'
+            ref ulong moverBB = ref BoardUtils.GetBitboardFromPiece(this, moverOnTo);
+            moverBB = BitBoardUtils.SetBit(moverBB, from);
+            Pieces[from] = moverOnTo;
+        }
+
+        // Undo rook movement for castling (king’s bitboard was already handled above)
+        if (mi.shortCastle)
+        {
+            switch (moverOnTo.color)
             {
                 case PieceColor.White:
+                    // Rook went 7->5; put it back
                     WhiteRooks = BitBoardUtils.ClearBit(WhiteRooks, 5);
                     WhiteRooks = BitBoardUtils.SetBit(WhiteRooks, 7);
-                    Pieces[7] = new Piece(PieceType.Rook, PieceColor.White);
                     Pieces[5] = null;
+                    Pieces[7] = new Piece(PieceType.Rook, PieceColor.White);
                     break;
 
                 case PieceColor.Black:
+                    // Rook went 63->61; put it back
                     BlackRooks = BitBoardUtils.ClearBit(BlackRooks, 61);
                     BlackRooks = BitBoardUtils.SetBit(BlackRooks, 63);
-                    Pieces[63] = new Piece(PieceType.Rook, PieceColor.Black);
                     Pieces[61] = null;
+                    Pieces[63] = new Piece(PieceType.Rook, PieceColor.Black);
                     break;
             }
         }
 
-        if (moveInfoToUndo.longCastle)
+        if (mi.longCastle)
         {
-            switch (thisPiece.color)
+            switch (moverOnTo.color)
             {
                 case PieceColor.White:
+                    // Rook went 0->3; put it back
                     WhiteRooks = BitBoardUtils.ClearBit(WhiteRooks, 3);
                     WhiteRooks = BitBoardUtils.SetBit(WhiteRooks, 0);
-                    Pieces[0] = new Piece(PieceType.Rook, PieceColor.White);
                     Pieces[3] = null;
+                    Pieces[0] = new Piece(PieceType.Rook, PieceColor.White);
                     break;
 
                 case PieceColor.Black:
+                    // Rook went 56->59; put it back
                     BlackRooks = BitBoardUtils.ClearBit(BlackRooks, 59);
                     BlackRooks = BitBoardUtils.SetBit(BlackRooks, 56);
-                    Pieces[56] = new Piece(PieceType.Rook, PieceColor.Black);
                     Pieces[59] = null;
+                    Pieces[56] = new Piece(PieceType.Rook, PieceColor.Black);
                     break;
             }
         }
     }
+
 }
 
 
